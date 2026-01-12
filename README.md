@@ -1,8 +1,17 @@
-# Blue Team Threat Hunting Knowledge Base
+# Blue Team Threat Hunting Field Notes
 
-> A centralized framework for curating detection logic, analyzing threat artifacts, and mapping TTPs across diverse environments.
+> **My personal arsenal of detection logic, query syntax, and artifact analysis.**
+> *Curated for operational utility and rapid deployment.*
 
-## Project Overview
-This repository serves as a personal knowledge management system for **Detection Engineering** and **Threat Hunting**. It bridges the gap between theoretical threat intelligence (MITRE ATT&CK) and practical, actionable queries (SPL/KQL).
+## About This Field Manual
+This repository is not a textbook; it is my **personal combat notebook**.
 
-The goal is not just to list tools, but to document the **detection nuance**—specifically focusing on data source variations, evasion techniques, and high-fidelity logic.
+It serves as a centralized, living collection of tradecraft and detection strategies that I have researched, tested, and curated for my own use as a Security Analyst. The content here reflects my personal methodology in dissecting TTPs and translating them into actionable defense mechanisms.
+
+The goal is to bridge the gap between abstract threat intelligence and the specific, often messy reality of log analysis in the field.
+
+## Why This Exists (Design Philosophy)
+I built this repository to solve specific challenges I encounter in daily operations
+
+---
+*Maintained by Juana | Cyber Security Analyst*
