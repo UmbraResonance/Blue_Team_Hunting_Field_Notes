@@ -1,0 +1,43 @@
+title: Cobalt Strike Reflective DLL Injection Heuristic
+id: 5f9a1234-5678-90ab-cdef-1234567890ab
+status: experimental
+description:
+    Detects potential Reflective DLL Injection (RDI) by identifying processes that spawn
+    and trigger Remote Thread Creation (Event ID 8) without any corresponding Image Load (Event ID 7).
+    This rule utilizes Sigma Correlation to associate events over a specific timeframe.
+author: Juana Fan
+date: 2026/01/16
+level: high
+falsepositives:
+    - JIT compilers (e.g., .NET, Java)
+    - Browser internal process management
+fields:
+    - ProcessGuid
+    - Image
+    - ParentImage
+    - CommandLine
+    - RemoteThreadId
+    - TargetImage
+action: correlation
+type: temporal
+rules:
+    - name: selection_proc_creation
+      condition:
+            EventID: 1
+    - name: selection_remote_thread
+      condition:
+            EventID: 8
+    - name: filter_image_load
+      condition:
+            EventID: 7
+group-by:
+    - ProcessGuid
+timespan: 5m
+condition: selection_proc_creation and selection_remote_thread and not filter_image_load
+logsource:
+    product: windows
+    service: sysmon
+tags:
+    - attack.t1620
+    - reflective_dll_injection
+    - cobalt_strike
