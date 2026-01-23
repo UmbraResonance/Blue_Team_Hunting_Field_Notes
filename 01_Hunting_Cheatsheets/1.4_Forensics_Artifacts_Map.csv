@@ -1,1 +1,30 @@
-﻿
+﻿Category,Investigation Goal (What we look for),Artifact Name (The Source),Path / Registry Key,Evidence Value (Analysis Tip)
+Windows_System,Establish OS Baseline,Registry: CurrentVersion,HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion,"Contains ProductName, ReleaseId, and InstallDate. Essential to verify if the image matches the victim machine."
+Windows_System,Determine Timezone,Registry: TimeZoneInformation,HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation,Identifies system bias from UTC. CRITICAL for creating a correct timeline.
+Windows_Execution,Prove Program Execution,Prefetch Files (*.pf),C:\Windows\Prefetch\*.pf,"Tracks run count and last execution time (up to 8). Proof that a binary ran, not just existed."
+Windows_Execution,Find Deleted File Execution ,ShimCache (AppCompatCache),HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache,Tracks file metadata even if the file was deleted. Key evidence for 'dropped & executed' malware.
+Windows_Execution,Link Binary to Time ,Amcache (Amcache.hve),C:\Windows\appcompat\Programs\Amcache.hve,Contains SHA1 hashes and compilation timestamps. crucial for identifying specific malware versions.
+Windows_Execution,Track User GUI Activity ,UserAssist,HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist,Logs programs launched via Explorer (GUI). Shows run count and 'Focus Time' (how long it was used).
+Windows_FileAccess,Find Recent Files,LNK Files (Shortcuts),C:\Users\<User>\AppData\Roaming\Microsoft\Windows\Recent,"Created when files are opened. Reveals original file path, MAC timestamps, and volume serial number."
+Windows_FileAccess,App-Specific History ,JumpLists (AutoDest),C:\Users\<User>\AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations,Shows recent files per application (e.g. recent Word docs). Good for finding accessed sensitive data.
+Windows_FileAccess,Reconstruct Folder Browsing,ShellBags,USRCLASS.DAT\Local Settings\Software\Microsoft\Windows\Shell\Bags,Tracks which folders were opened/viewed in Explorer. Proves attacker navigated to specific dirs (e.g. 'C:\Passwords').
+Windows_USB,List Connected Devices,Registry: USBSTOR,HKLM\SYSTEM\CurrentControlSet\Enum\USBSTOR,"List of all USB devices ever connected. Contains Vendor, Product, and Serial Number."
+Windows_USB,Map Drive Letter,Registry: Portable Devices,HKLM\SOFTWARE\Microsoft\Windows Portable Devices\Devices,Maps a unique USB Serial Number to its assigned Drive Letter (e.g. F:). vital for timeline correlation.
+Windows_USB,Determine Connect Time,Registry: Device Properties,HKLM\SYSTEM\CurrentControlSet\Enum\USBSTOR\<DeviceID>\Properties,"Contains timestamps for 'First Install', 'Last Connected', and 'Last Removal'."
+Windows_USB,Attribute to User,Registry: MountPoints2,NTUSER.DAT\Software\Microsoft\Windows\CurrentVersion\Explorer\MountPoints2,Proves a SPECIFIC user was logged in when the USB was connected (User-specific hive).
+Windows_Persistence,Detect Boot Persistence ,Registry: Run Keys,HKLM\Software\Microsoft\Windows\CurrentVersion\Run,Classic persistence. Programs listed here start automatically on system boot.
+Windows_Persistence,Detect One-Time Run,Registry: RunOnce,HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce,Programs run once at next boot then delete the key. Often used by malware installers/cleanup scripts.
+Windows_Persistence,Detect Malicious Services,Registry: Services,HKLM\SYSTEM\CurrentControlSet\Services,Check for services launching binaries from Temp/AppData. Look for 'ImagePath' pointing to suspicious locations.
+Windows_Persistence,Detect Scheduled Jobs,Scheduled Tasks (*.xml),C:\Windows\System32\Tasks,Review task actions. Look for encoded PowerShell or tasks running suspicious scripts daily.
+Windows_Persistence,Detect Login Persistence,Startup Folder,C:\Users\<User>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup,Simple persistence. Any file here runs when the specific user logs in.
+Windows_Network,Correlate IP to Host,Registry: Network Interfaces,HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces,Maps Network Card GUIDs to static IP addresses or DHCP info. Links network logs to this specific host.
+Windows_RecycleBin,Recover Deleted Data,Recycle Bin ($I / $R),C:\$Recycle.Bin\<SID>,Deleted files. Metadata file ($I) contains the original file name and deletion timestamp.
+Linux_System,Identify OS Version ,OS Release File,/etc/os-release OR /etc/issue,Identifies Linux distribution and version. Essential for choosing correct volatility profiles.
+Linux_Auth,Track User Logins,Auth Logs,/var/log/auth.log OR /var/log/secure,"Records SSH logins, sudo usage, and new user creation events."
+Linux_Auth,Track Session Duration,Wtmp (Last Log),/var/log/wtmp,Binary file (read with 'last'). Shows exact login/logout times and reboots.
+Linux_User,Analyze User Commands ,Bash History,~/.bash_history,"Command history. Look for 'wget', 'curl', 'nc', 'rm -rf', or base64 decoding loops."
+Linux_User,Analyze File Edits,Vim History,~/.viminfo,Search history and file cursor positions for Vim. Can reveal which config files were modified.
+Linux_Persistence,Detect Scheduled Jobs,Cron Jobs,/var/spool/cron/crontabs/ OR /etc/crontab,Look for reverse shells (e.g. 'bash -i') scheduled to run periodically.
+Linux_Persistence,Detect Auto-Start Services,Systemd Services,/etc/systemd/system/,Look for 'malicious.service' enabled to start at multi-user.target.
+Browser,Track Downloads,Chrome History (Downloads),C:\Users\<User>\AppData\Local\Google\Chrome\User Data\Default\History,SQLite DB. Check 'downloads' table for file paths and source URLs (Where did the malware come from?).
+Browser,Track Web Surfing,Chrome History (URLs),C:\Users\<User>\AppData\Local\Google\Chrome\User Data\Default\History,SQLite DB. Check 'urls' table for visit count and timestamps.
