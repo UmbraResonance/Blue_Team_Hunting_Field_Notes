@@ -28,13 +28,13 @@ I built this repository to solve specific challenges I encounter in daily operat
 
 | Directory | Purpose | Key Use Case |
 | :--- | :--- | :--- |
-| **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **The "Map"** | "Eyes-on-glass" hunting. Rapid lookup for Event IDs, Process Genealogy, and Artifact paths. |
-| **[`02_Detection_Rules`](./02_Detection_Rules/)** | **The "Code"** | Heuristic rules (YAML/Sigma) for SIEM/EDR engineering. |
-| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **The "Script"** | SOPs for specific incident types (e.g., Phishing, Ransomware). |
-| **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)** | **The "Deep Dive"** | Reverse engineering checklists and lab command references. |
-| **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** | **The "Context"** | Adversary profiles (APTs) and Diamond Model strategies. |
-| **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **The "Syntax"** | Pure command reference (KAPE, Volatility, Zimmerman Tools). |
-| **[`07_Reporting`](./07_Reporting_Templates/)** | **The "Output"** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
+| **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log & Artifact Reference** | "Eyes-on-glass" hunting. Rapid lookup for Event IDs, Process Genealogy, and Artifact paths. |
+| **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic \(Sigma/YARA\)"** | Heuristic rules (YAML/Sigma) for SIEM/EDR engineering. |
+| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | SOPs for specific incident types (e.g., Phishing, Ransomware). |
+| **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)** | **Reverse Engineering Guides** | Reverse engineering checklists and lab command references. |
+| **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** | **Adversary Knowledge Base** | Adversary profiles (APTs) and Diamond Model strategies. |
+| **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **Command Syntax Library** | Pure command reference (KAPE, Volatility, Zimmerman Tools). |
+| **[`07_Reporting`](./07_Reporting_Templates/)** | **Documentation & Evidence** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
 
 ---
 
