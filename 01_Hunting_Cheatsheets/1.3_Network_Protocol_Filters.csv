@@ -31,3 +31,8 @@ DNS,C2,dns.qry.type == 16,TXT Record C2: Detects TXT records often used to carry
 DNS,C2,dns.count.answers > 10,Fast Flux: High number of IP resolutions returned for a single domain.
 Global,Hunting,"frame contains ""KEYWORD""","Nuclear Search: Search ENTIRE packet (Headers Body Hex) for a string. Best for initial blind hunting.,High noise if keyword is common (e.g. ""com"")."
 Global,Hunting,"frame matches ""(?i)KEYWORD""","Case-Insensitive Hunt: Regex search ignoring case (e.g. finds 'Admin' 'admin' 'ADMIN'). Crucial for evasion detection.,Computationally expensive on large PCAPs."
+HTTP,Hunting,http.request.uri contains "KEYWORD",Path Hunting: Search specifically in file paths/directories (e.g. .bak .config private),Common words in URLs.
+HTTP,Hunting,http.request.full_uri contains "KEYWORD",Parameter Hunting: Search full URL including GET parameters (e.g. finds SQLi payloads),Legitimate complex API queries.
+HTTP,Hunting,http.file_data contains "KEYWORD",Content Hunting: Search ONLY in the response body (HTML/JSON). Good for finding defacement.,Common HTML tags or scripts.
+HTTP,Hunting,http.host contains "KEYWORD",Infrastructure Hunt: Search for suspicious domain patterns in Host headers.,Internal domain naming conventions.
+HTTP,Hunting,http.request.method == "POST" && frame contains "KEYWORD",Post Body Hunt: Search inside POST requests (e.g. login passwords webshell content),Legitimate form data.
