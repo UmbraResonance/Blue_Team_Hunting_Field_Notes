@@ -1,0 +1,21 @@
+﻿Category,Investigation Goal (What we look for),Command / Plugin Syntax,Description / Analysis Tip
+CLI_Basics,Basic Execution,python3 vol.py -f <IMAGE> <PLUGIN>,Standard Volatility 3 syntax. '-f' specifies the memory dump file.
+CLI_Basics,Save Output,python3 vol.py -f <IMAGE> <PLUGIN>  > results.txt,Redirect stdout to a file. Essential for documenting evidence or grepping later.
+CLI_Basics,Help / List Options,python3 vol.py <PLUGIN> -h,Shows specific flags for a plugin (e.g. how to dump files or filter by PID).
+CLI_Basics,Verbose Mode,python3 vol.py -v -f <IMAGE> <PLUGIN>,Enables verbose output. Useful when a plugin crashes or hangs.
+System,Identify OS Profile,windows.info,"Identifies the OS version, build number, and architecture. CRITICAL: Confirms if the memory image is readable before you start."
+Process,List Active Processes,windows.pslist,Lists processes from the doubly-linked list. Standard view of what the OS 'thinks' is running.
+Process,Find Hidden Processes,windows.psscan,Scans memory specifically for EPROCESS blocks. Comparing pslist vs psscan reveals Rootkits (DKOM)hiding processes.
+Process,Analyze Process Tree,windows.pstree,Visualizes parent-child relationships. KEY: Look for anomalies like svchost.exe spawning cmd.exe or orphaned processes.
+Process,Get Command Arguments,windows.cmdline,"Displays the exact command line used to launch the process. KEY: Reveals malware paths, flags, and encoded PowerShell scripts."
+Process,Detect Injected Code,windows.malfind,Scans for memory pages with RWX (Read-Write-Execute) permissions. The #1 plugin for finding code injection and hollowed processes.
+Process,Analyze DLLs,windows.dlllist,Lists loaded DLLs for a process. Look for DLLs running from Temp folders or uncommon paths.
+Process,Find Hidden/Unlinked DLLs,windows.ldrmodules,"Compares the PEB lists (InLoad, InMemory, InInit). If a DLL is in one list but not others, it's likely hidden (DLL Injection)."
+Process,Check Handles,windows.handles,"Lists open handles (files, registry keys, mutexes). Use --pidto see what specific resources a suspicious process is touching."
+Network,List Connections,windows.netscan,Scans for TCP/UDP connections and listeners. Links an IP address to a specific Process ID (PID). Vital for attribution.
+File,Find File Objects,windows.filescan,Scans memory for file objects. Use grep to find filenames even if they were deleted from disk.
+File,Extract Files,windows.dumpfiles,Extracts the actual binary from memory to disk for AV scanning. Use with --virtaddr found in filescan.
+Registry,Extract User Passwords,windows.hashdump,Extracts NTLM hashes from the SAM registry hive in memory. Can be used to crack passwords or verify credential theft.
+Registry,Analyze Registry Keys,windows.registry.printkey,Prints specific registry keys from memory. Useful for checking 'Run' keys without mounting the disk image.
+Misc,Check Last Error,windows.getlasterror,Gets the last error code for a thread. Can help understand why malware failed to execute or verify crash dumps.
+Misc,Analyze Mutexes ,windows.mutantscan,Scans for Mutex objects. Malware uses specific Mutex names to avoid reinfecting the same host. Google the mutex names!
