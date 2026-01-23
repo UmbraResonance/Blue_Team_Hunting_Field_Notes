@@ -1,0 +1,6 @@
+﻿Evidence_ID,Acquisition_Time_UTC,Item_Name,Artifact_Type,Source_Hostname,Source_Path_Location,Hash_SHA256,Acquired_By,Status_Location,Notes
+EV-01,2026/1/23 02:30,suspicious_update.exe,Malicious Binary,PC-FINANCE-01,C:\Users\Admin\AppData\Local\Temp\,e3b0c44298fc1c149...,Juana,Stored in Malware Zoo (Pwd: infected),Uploaded to VT (Score: 45/70)
+EV-02,2026/1/23 03:00,Security.evtx,Log File,DC-01,C:\Windows\System32\winevt\Logs\,a1b2c3d4e5f6...,Juana,Local Analysis Folder,Copied via KAPE; Event 4624/4625 focus
+EV-03,2026/1/23 03:15,lsass.DMP,Memory Dump,PC-HR-02,Process ID 784 (Task Manager Dump),f7e8d9c0b1a2...,Juana,Encrypted Drive,SENSITIVE:Contains cleartext credentials
+EV-04,2026/1/23 04:00,pcap_capture_01.pcap,Network Capture,Firewall-Edge,Export from Palo Alto GUI,1a2b3c4d5e6f...,Juana,Wireshark Analysis,Traffic to C2 IP 185.x.x.x
+,,,,,,,,,
