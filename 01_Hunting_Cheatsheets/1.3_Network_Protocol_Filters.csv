@@ -36,3 +36,7 @@ HTTP,Hunting,"http.request.full_uri contains ""KEYWORD""",Parameter Hunting: Sea
 HTTP,Hunting,"http.file_data contains ""KEYWORD""",Content Hunting: Search ONLY in the response body (HTML/JSON). Good for finding defacement.
 HTTP,Hunting,"http.host contains ""KEYWORD""",Infrastructure Hunt: Search for suspicious domain patterns in Host headers.
 HTTP,Hunting,"http.request.method == ""POST"" && frame contains ""KEYWORD""",Post Body Hunt: Search inside POST requests (e.g. login passwords webshell content)
+DHCP,Asset_ID,bootp.option.type == 12,Hostname Extraction: Identify the machine name (Hostname) from DHCP Request packets.
+DHCP,Asset_ID,bootp.option.type == 55,"OS Fingerprinting: Analyze ""Parameter Request List"" to infer OS type (Windows requests distinct params vs Linux)."
+NBNS,Asset_ID,nbns,NetBIOS Name: Identify Windows Hostnames and Workgroups on local subnet.
+SMB,Asset_ID,smb2.session_setup.request.type,Windows Build ID: SMB Session Setup often reveals the exact Native OS and Kernel Build version.
