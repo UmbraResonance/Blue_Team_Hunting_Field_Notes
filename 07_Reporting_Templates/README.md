@@ -24,6 +24,15 @@ Standardized templates for incident documentation, chain of custody, and intelli
   * **Storage:** Note the physical location (e.g., "Encrypted Cold Storage", "Malware Sandbox").
   * **SIEM Logs:** Do not log simple queries here. Only log **exported files** that serve as tangible evidence.
 
+### 3. [DFIR_to_CTI_Workbench.md] (https://github.com/UmbraResonance/Blue_Team_Knowledge_Base/blob/main/07_Reporting_Templates/7.3_DFIR_to_CTI_Workbench.md)
+
+**Purpose:** Analysis, TTP Mapping, and Campaign Reconstruction.
+
+**Usage:** The bridge between raw artifacts and strategic intelligence.
+**Key Features:**
+ * **Analytical QA:** Integrated Gap Analysis & Precision checks to reduce bias.
+ * **Diamond Model Chaining:** Supports Activity Threads. Map complex campaigns by linking multiple diamond models (e.g., Phishing → C2 → Exfil).
+
 ---
 
 ## ⚡ Operational SOP
