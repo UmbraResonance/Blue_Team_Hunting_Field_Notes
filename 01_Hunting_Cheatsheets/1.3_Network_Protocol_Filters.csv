@@ -1,0 +1,31 @@
+﻿Protocol,Category,Filter Syntax (Wireshark),Description/Use Case
+TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size > 1024,TCP Connect Scan: Standard full handshake scan (Large Window)
+TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size <= 1024,SYN Scan: Stealth half-open scan signature (Small Window)
+ICMP,Recon,icmp.type == 3 and icmp.code == 3,UDP Scan Response: Port Unreachable (Confirms UDP scan on closed port)
+ICMP,C2,data.len > 48 and icmp,"ICMP Tunneling: Detects payloads larger than standard Ping (Windows=32b, Linux=48b)."
+ARP,Recon,arp.dst.hw_mac == 00:00:00:00:00:00,Host Discovery: ARP broadcast to identify live hosts
+ARP,Attack,arp.duplicate-address-detected,ARP Poisoning: Duplicate IP detected (Potential MitM)
+ARP,Attack,arp.opcode == 1,ARP Flood: High volume of requests (Check Statistics)
+HTTP,Triage,http.response.code == 200,Success: Successful HTTP requests (200 OK)
+HTTP,Recon,http.response.code == 404,Dir Busting: High volume indicates directory bruteforce/scanning
+HTTP,Recon,http.response.code == 401 || http.response.code == 403,Access Denied: Attempts to access restricted resources
+HTTP,Method,"http.request.method == ""POST""","Data Upload: Potential Webshell interaction, logon attempts or data exfiltration"
+HTTP,Method,"http.request.method == ""PUT""",File Upload: Potential WebDAV malicious file upload
+HTTP,Method,"http.request.method == ""DELETE""",Resource Removal: Attempt to delete files/logs via API or WebDAV
+HTTP,Indicator,"http.user_agent contains ""sqlmap"" || http.user_agent contains ""Nmap"" || http.user_agent contains ""Nikto""",Hack Tool: Default User-Agent from automated scanners
+HTTP,Exploit,"(ip contains ""jndi"") or ( ip contains ""Exploit"") or (frame contains ""jndi"") or ( frame contains ""Exploit"") or (http.user_agent contains ""$"") or (http.user_agent contains ""=="")  ",Exploit: JNDI injection attempt (CVE-2021-44228)
+TLS,Triage,tls.handshake.type == 1,Client Hello: Identify initiation of secure connections. Source of SNI and JA3 data.
+FTP,Auth,"ftp.request.command == ""USER""",Account Context: Identifies target username. Critical for attribution.
+FTP,Auth,"ftp.request.command == ""PASS""",Credential Context: Captures cleartext password. Confirms if credential was leaked.
+FTP,Auth,ftp.response.code == 530,Brute Force: Login failed (Sequence of 530s)
+FTP,Auth,ftp.response.code == 230,Login Success: Successful authentication
+FTP,Enum,"ftp.request.command == ""LIST""",File Enumeration: Check files in current directory
+FTP,Nav,"ftp.request.command == ""CWD""",Movement: Change Working Directory. Tracks attacker's lateral movement path.
+FTP,Nav,"ftp.request.command == ""PWD""",Verification: Print Working Directory. Attacker confirming current location.
+FTP,Action,"ftp.request.command == ""RETR""",Download: Attacker retrieved a file
+FTP,Action,"ftp.request.command == ""STOR""",Upload: Attacker uploaded a file
+SMB,File Transfer,smb.cmd == 0xA2,SMB File Transfer: Detect NT Create AndX (File creation/opening)
+DNS,C2,dns.flags.response == 0,
+DNS,Exfil,dns.qry.name.len > 15 and !mdns,Long Subdomains: Detects data exfiltration encoded in long subdomains (Tunneling).
+DNS,C2,dns.qry.type == 16,TXT Record C2: Detects TXT records often used to carry C2 payloads (Base64).
+DNS,C2,dns.count.answers > 10,Fast Flux: High number of IP resolutions returned for a single domain.
