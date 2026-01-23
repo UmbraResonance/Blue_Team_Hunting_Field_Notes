@@ -42,21 +42,14 @@ High-density CSV tables designed for "eyes-on-glass" hunting. Used to spot anoma
 **The "Code" (Engineering Phase).**
 Where hunting logic is solidified into automated rules.
 * Contains heuristic rules (YAML/Sigma) for SIEM/EDR.
-* *Example:* `Cobalt Strike Reflective DLL Injection Heuristic.yaml`
 
 ### [`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)
 **The "Script" (Response Phase).**
 Standard Operating Procedures (SOPs) for specific incident types.
-* Step-by-step guides for Phishing, Ransomware, and Account Compromise.
-* Ensures consistent triage and containment processes.
 
 ### [`04_Malware_Analysis_Cheatsheets`](./04_Malware_Analysis_Cheatsheets/)
 **The "Deep Dive" (Analysis Phase).**
 Reference checklists for dissecting malicious binaries.
-* **Static Analysis:** PE header anomalies, suspicious imports, and packing indicators.
-* **Dynamic Analysis:** Sandbox monitoring points and anti-evasion checks.
-* **Deobfuscation:** CyberChef recipes for decoding payloads.
-* **Assembly:** x86/x64 basics for identifying key logic flows.
 
 ### [`05_Threat_Intelligence_Library`](./05_Threat_Intelligence_Library/)
 **The "Context" (Attribution Phase).**
@@ -67,8 +60,6 @@ Knowledge base on Threat Actors and TTPs.
 ### [`06_Tool_Command_Vault`](./06_Tool_Command_Vault/)
 **The "Dictionary" (Reference).**
 Pure syntax reference for tools.
-* "How-to" guides for Nmap, PowerShell, KAPE, etc.
-* Used when I know *what* I want to do, but forget the specific flags.
 
 ### [`07_Reporting_Templates`](./07_Reporting_Templates/)
 **The "Deliverable" (Communication Phase).**
