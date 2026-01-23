@@ -54,3 +54,11 @@ Standardized templates for incident documentation, chain of custody, and intelli
 
 * **Evidence ID:** Use sequential `EV-XX` format.
 * **Reference:** The `Evidence_Ref` in the Timeline must match the `Evidence_ID` in the Artifact Log.
+
+### 4. Campaign Analysis (Activity Threads)
+
+* **Single Event:** Use the standard template structure.
+
+* **Multi-Stage Campaign:** Do not create multiple files. Duplicate "Section 3: Diamond Model" within the same workbench document for each stage of the attack.
+
+* **Linkage:** Explicitly define the Previous Event (Cause) and Next Event (Effect) to visualize the attack chain.
