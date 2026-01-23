@@ -25,7 +25,9 @@ FTP,Nav,"ftp.request.command == ""PWD""",Verification: Print Working Directory. 
 FTP,Action,"ftp.request.command == ""RETR""",Download: Attacker retrieved a file
 FTP,Action,"ftp.request.command == ""STOR""",Upload: Attacker uploaded a file
 SMB,File Transfer,smb.cmd == 0xA2,SMB File Transfer: Detect NT Create AndX (File creation/opening)
-DNS,C2,dns.flags.response == 0,
+DNS,C2,dns.flags.response == 0,Beaconing Analysis: Filter queries to calculate frequency (Jitter/Interval)
 DNS,Exfil,dns.qry.name.len > 15 and !mdns,Long Subdomains: Detects data exfiltration encoded in long subdomains (Tunneling).
 DNS,C2,dns.qry.type == 16,TXT Record C2: Detects TXT records often used to carry C2 payloads (Base64).
 DNS,C2,dns.count.answers > 10,Fast Flux: High number of IP resolutions returned for a single domain.
+Global,Hunting,"frame contains ""KEYWORD""","Nuclear Search: Search ENTIRE packet (Headers Body Hex) for a string. Best for initial blind hunting.,High noise if keyword is common (e.g. ""com"")."
+Global,Hunting,"frame matches ""(?i)KEYWORD""","Case-Insensitive Hunt: Regex search ignoring case (e.g. finds 'Admin' 'admin' 'ADMIN'). Crucial for evasion detection.,Computationally expensive on large PCAPs."
