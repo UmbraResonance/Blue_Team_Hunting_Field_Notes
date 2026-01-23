@@ -2,63 +2,65 @@
 
 Standardized templates for incident documentation, chain of custody, and intelligence analysis.
 
-## Template Usage
+## Template Usage & Workflow
 
-### 1. [Timeline_Tracker.csv](https://github.com/UmbraResonance/Blue_Team_Knowledge_Base/blob/main/07_Reporting_Templates/7.1_Timeline_Tracker.csv)
+### 1. [Timeline_Tracker.csv](./7.1_Timeline_Tracker.csv)
+**Phase: Triage & Response**
+* **Purpose:** The central narrative. Records "Events" (What happened?) and "Actions" (What did we do?).
+* **Key Rule:** Mandatory use of `Timestamp_UTC` for correlation. Link to evidence using `EV-XX` IDs.
 
-**Purpose:** The central operational narrative. Records "Events" and "Actions".
+### 2. [Evidence_Artifact_Log.csv](./7.2_Evidence_Artifact_Log.csv)
+**Phase: Collection & Preservation**
+* **Purpose:** Chain of Custody (CoC). Records "Objects" (Files, Logs, Memory).
+* **Key Rule:** Calculate SHA256 immediately upon acquisition.
+* **Exam Mode:** Use as a text scratchpad for recording Flags, IP addresses, and Log queries.
 
-* **Primary Key:** `Timestamp_UTC`. All cross-system correlation must use UTC.
-* **Usage:**
-  * Log key findings immediately during triage.
-  * Use `Timestamp_Local` only for reconstructing user context (e.g., business hours vs. after hours).
-  * Link to physical files using the `Evidence_Ref` column (e.g., `EV-01`).
+### 3. [Malware_Analysis_Report.md](./7.3_Malware_Analysis_Report.md)
+**Phase: Deep Dive Analysis**
+* **Purpose:** Technical dissection of specific malicious binaries found during the incident.
+* **Input:** Malware samples extracted and logged in `7.2`.
+* **Output:** Capabilities, Configs, and Indicators (IOCs) that feed into the CTI Workbench.
 
-### 2. [Evidence_Artifact_Log.csv](https://github.com/UmbraResonance/Blue_Team_Knowledge_Base/blob/main/07_Reporting_Templates/7.2_Evidence_Artifact_Log.csv)
+### 4. [DFIR_to_CTI_Workbench.md](./7.4_DFIR_to_CTI_Workbench.md)
+**Phase: Attribution & Intelligence**
+* **Purpose:** Bridge between raw artifacts and strategic context.
+* **Features:**
+    * **Diamond Model:** Map the Campaign (Adversary + Infrastructure + Capability + Victim).
+    * **Analytical QA:** Use the integrated "Gap Analysis" section to validate your findings.
+    * **Activity Threads:** Link multiple diamonds to reconstruct complex attack chains.
 
-**Purpose:** Chain of Custody (CoC). Records "Objects" and "Assets".
-
-* **Scope:** Extracted malware samples, memory dumps, disk images, and **exported** log files (CSV/JSON).
-* **Standards:**
-  * **Hash:** Calculate SHA256 immediately upon acquisition to ensure integrity.
-  * **Storage:** Note the physical location (e.g., "Encrypted Cold Storage", "Malware Sandbox").
-  * **SIEM Logs:** Do not log simple queries here. Only log **exported files** that serve as tangible evidence.
-
-### 3. [DFIR_to_CTI_Workbench.md] (https://github.com/UmbraResonance/Blue_Team_Knowledge_Base/blob/main/07_Reporting_Templates/7.3_DFIR_to_CTI_Workbench.md)
-
-**Purpose:** Analysis, TTP Mapping, and Campaign Reconstruction.
-
-* **Usage:** The bridge between raw artifacts and strategic intelligence.
-* **Key Features:**
-  * **Analytical QA:** Integrated Gap Analysis & Precision checks to reduce bias.
-  * **Diamond Model Chaining:** Supports Activity Threads. Map complex campaigns by linking multiple diamond models (e.g., Phishing → C2 → Exfil).
+### 5. [Final_Incident_Report_Template.md](./7.5_Final_Incident_Report_Template.md)
+**Phase: Deliverable**
+* **Purpose:** The official output for Management (Executive Summary) and Engineering (Technical Analysis).
+* **Synthesis:** Aggregates the Timeline (7.1), Evidence (7.2), and Analysis findings (7.3 & 7.4) into one document.
 
 ---
 
 ## ⚡ Operational SOP
 
 ### 1. Timeline vs. Evidence Log
-
-* **Timeline Tracker:** Records **Actions**.
-* *Example:* "10:00 UTC - Admin executed malicious script."
-
-* **Evidence Log:** Records **Objects**.
-* *Example:* "EV-01 - `script.ps1` (SHA256: `a1b2...`) extracted from host."
+* **Timeline Tracker (7.1)** = **Actions & Events (Red & Blue)**.
+    * *Attacker Actions:* "Admin executed malicious script."
+    * *Defender Actions:* "Analyst isolated host via EDR." (**CRITICAL:** Record all containment/remediation steps here to calculate MTTR).
+    * *Format:* "10:00 UTC - Admin executed malicious script."
+    * *Do not:* Do not clutter this with full file hashes or raw log dumps. Use the Reference ID (`EV-01`).
+* **Evidence Log (7.2)** = **Objects & Assets**.
+    * *Format:* "EV-01 | script.ps1 | SHA256: a1b2..."
+    * *Rule:* If you extracted it, exported it, or isolated it, it goes here.
 
 ### 2. Timezone Discipline
+* **Mandatory UTC:** The `Timestamp_UTC` column in the Timeline is the **only** source of truth for sorting.
+* **Source Offset:** Always record the `Timezone_Offset` (e.g., UTC+8) of the source system.
+    * *Reason:* To correctly reconstruct the user's local context (e.g., "Was it midnight or 9 AM for the user?").
 
-* **Mandatory UTC:** All logs (Firewall, Cloud, Server) must be normalized to UTC in the tracker.
-* **Offset:** Always record the `Timezone_Offset` of the source system to prevent analysis errors.
-
-### 3. Naming Convention
-
-* **Evidence ID:** Use sequential `EV-XX` format.
-* **Reference:** The `Evidence_Ref` in the Timeline must match the `Evidence_ID` in the Artifact Log.
+### 3. Naming & Linking
+* **Evidence ID:** Use sequential `EV-01`, `EV-02` format.
+* **Cross-Referencing:**
+    * `7.1 Timeline` points to `EV-01`.
+    * `7.3 Malware Report` analyzes `EV-01`.
+    * `7.5 Final Report` cites `EV-01` as IoC.
 
 ### 4. Campaign Analysis (Activity Threads)
-
-* **Single Event:** Use the standard template structure.
-
-* **Multi-Stage Campaign:** Do not create multiple files. Duplicate "Section 3: Diamond Model" within the same workbench document for each stage of the attack.
-
-* **Linkage:** Explicitly define the Previous Event (Cause) and Next Event (Effect) to visualize the attack chain.
+* **Multi-Stage Attacks:** Do not create multiple CTI files.
+* **Structure:** Duplicate **"Section 3: Diamond Model"** within `7.4_DFIR_to_CTI_Workbench.md` for each stage.
+* **Linkage:** Explicitly define the `Previous Event` (Cause) and `Next Event` (Effect) to visualize the attack chain (e.g., *Phishing Diamond* → *C2 Diamond*).
