@@ -14,7 +14,7 @@ Standardized templates for incident documentation, chain of custody, and intelli
   * Use `Timestamp_Local` only for reconstructing user context (e.g., business hours vs. after hours).
   * Link to physical files using the `Evidence_Ref` column (e.g., `EV-01`).
 
-### 2. [Evidence_Artifact_Log.csv](https://github.com/UmbraResonance/Blue_Team_Knowledge_Base/blob/main/07_Reporting_Templates/7.1_Timeline_Tracker.csv)
+### 2. [Evidence_Artifact_Log.csv](https://github.com/UmbraResonance/Blue_Team_Knowledge_Base/blob/main/07_Reporting_Templates/7.2_Evidence_Artifact_Log.csv))
 
 **Purpose:** Chain of Custody (CoC). Records "Objects" and "Assets".
 
