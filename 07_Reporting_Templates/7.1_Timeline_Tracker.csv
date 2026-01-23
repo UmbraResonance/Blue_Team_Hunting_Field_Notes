@@ -1,0 +1,5 @@
+﻿Timestamp_UTC,Timestamp_UTC,Timestamp_Local,Timezone_Offset,Hostname_IP,Data_Source_Artifact,Event_Type,Description_Analysis,Evidence_Ref,Analyst,Notes_Tags
+2026/1/23 02:15,2026/1/23 02:15,2026/1/23 10:15,UTC+8,192.168.1.1(FW),Firewall Traffic Log,Network Connection,Detected outbound to 185.x.x.x:443.,EV-01,Juana,Initial Access
+2026/1/23 02:17,2026/1/23 02:17,2026/1/23 10:17,UTC+8,PC-FINANCE-01,WinEvent (Security),Process Creation,Event ID 4688: cmd.exe spawned by winword.exe.,EV-02,Juana,Execution
+2026/1/23 02:20,2026/1/23 02:20,2026/1/23 10:20,UTC+8,PC-FINANCE-01,NTFS ($MFT),File Create,Created update.exe in Temp folder.,EV-03,Juana,Persistence
+,,,,,,,,,,
