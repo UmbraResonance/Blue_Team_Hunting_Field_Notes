@@ -30,8 +30,8 @@ Standardized templates for incident documentation, chain of custody, and intelli
 
 * **Usage:** The bridge between raw artifacts and strategic intelligence.
 * **Key Features:**
- * **Analytical QA:** Integrated Gap Analysis & Precision checks to reduce bias.
- * **Diamond Model Chaining:** Supports Activity Threads. Map complex campaigns by linking multiple diamond models (e.g., Phishing → C2 → Exfil).
+  * **Analytical QA:** Integrated Gap Analysis & Precision checks to reduce bias.
+  * **Diamond Model Chaining:** Supports Activity Threads. Map complex campaigns by linking multiple diamond models (e.g., Phishing → C2 → Exfil).
 
 ---
 
