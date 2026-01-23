@@ -1,7 +1,6 @@
-# Blue Team Threat Hunting Field Notes
+# 🛡️ Blue Team Threat Hunting Field Notes
 
 > **My personal arsenal of detection logic, query syntax, and artifact analysis.**
->
 > *Curated for operational utility, rapid deployment, and high-pressure environments.*
 
 ---
@@ -14,78 +13,68 @@ It serves as a centralized, living collection of tradecraft and detection strate
 
 The goal is to bridge the gap between abstract threat intelligence and the specific, often messy reality of log analysis in the field.
 
-## 🧠 Design Philosophy (Why This Exists)
+---
+
+## 🧠 Design Philosophy
 
 I built this repository to solve specific challenges I encounter in daily operations:
-
-1.  **Zero Friction Retrieval:** When an alert fires, I don't want to browse documentation. I need the exact Wireshark filter or Volatility command *now*.
-2.  **Goal-Oriented Structure:** Artifacts are organized by **Investigation Goal** (e.g., "Find Hidden Processes"), not just by tool name.
-3.  **Detection-as-Code:** Moving from manual hunting queries to automated detection rules (YAML/Sigma) to prevent recurrence.
-4.  **Standardized Output:** Templates to ensure that findings are recorded with legal and forensic precision.
+1.  **Zero Friction Retrieval:** When an alert fires, I need the exact Wireshark filter or Volatility command *now*.
+2.  **Detection-as-Code:** Moving from manual hunting queries to automated detection rules to prevent recurrence.
+3.  **Strict SOPs:** Standardized templates to ensure findings are recorded with legal and forensic precision (Chain of Custody).
 
 ---
 
-## 📂 The Arsenal (Directory Structure)
+## 📂 The Arsenal (Architecture)
 
-This repository is organized to follow the lifecycle of a security incident: **Hunt -> Detect -> Respond -> Analyze -> Report**.
-
-### [`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)
-**The "Map" (Discovery Phase).**
-High-density CSV tables designed for "eyes-on-glass" hunting. Used to spot anomalies in raw data.
-* **`1.1_Master_Hunting_Matrix`**: Central index of hunting hypotheses.
-* **`1.2_Windows_Process_Genealogy`**: Reference for normal vs. malicious parent-child process relationships.
-* **`1.3_Network_Protocol_Filters`**: Wireshark filters for C2, Recon, and Exfil patterns.
-* **`1.4_Forensics_Artifacts_Map`**: Disk artifact mapping (Amcache, ShimCache, ShellBags) organized by investigation goal.
-* **`1.5_Memory_Analysis_Volatility`**: Volatility 3 command reference for finding rootkits and injection.
-
-### [`02_Detection_Rules`](./02_Detection_Rules/)
-**The "Code" (Engineering Phase).**
-Where hunting logic is solidified into automated rules.
-* Contains heuristic rules (YAML/Sigma) for SIEM/EDR.
-
-### [`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)
-**The "Script" (Response Phase).**
-Standard Operating Procedures (SOPs) for specific incident types.
-
-### [`04_Malware_Analysis_Cheatsheets`](./04_Malware_Analysis_Cheatsheets/)
-**The "Deep Dive" (Analysis Phase).**
-Reference checklists for dissecting malicious binaries.
-
-### [`05_Threat_Intelligence_Library`](./05_Threat_Intelligence_Library/)
-**The "Context" (Attribution Phase).**
-Knowledge base on Threat Actors and TTPs.
-* Adversary profiles (APT groups, Ransomware gangs).
-* MITRE ATT&CK mapping and Campaign tracking logs.
-
-### [`06_Tool_Command_Vault`](./06_Tool_Command_Vault/)
-**The "Dictionary" (Reference).**
-Pure syntax reference for tools.
-
-### [`07_Reporting_Templates`](./07_Reporting_Templates/)
-**The "Deliverable" (Communication Phase).**
-Templates for documenting findings and producing final reports.
-* **Timeline Tracker:** For unifying timestamps across UTC and Local timezones.
-* **Evidence Log:** Chain of custody tracking for extracted artifacts.
-* **DFIR_to_CTI_Workbench:** Framework for converting raw artifacts into intelligence and TTP mapping.
+| Directory | Purpose | Key Use Case |
+| :--- | :--- | :--- |
+| **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **The "Map"** | "Eyes-on-glass" hunting. Rapid lookup for Event IDs, Process Genealogy, and Artifact paths. |
+| **[`02_Detection_Rules`](./02_Detection_Rules/)** | **The "Code"** | Heuristic rules (YAML/Sigma) for SIEM/EDR engineering. |
+| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **The "Script"** | SOPs for specific incident types (e.g., Phishing, Ransomware). |
+| **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)** | **The "Deep Dive"** | Reverse engineering checklists and lab command references. |
+| **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** | **The "Context"** | Adversary profiles (APTs) and Diamond Model strategies. |
+| **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **The "Syntax"** | Pure command reference (KAPE, Volatility, Zimmerman Tools). |
+| **[`07_Reporting`](./07_Reporting_Templates/)** | **The "Output"** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
 
 ---
 
-## ⚡ Operational Workflow
+## ⚡ Operational Workflow (Incident Lifecycle)
 
-My typical workflow using this repository:
+How to utilize this repository during a live incident:
 
-1.  **Triage:** Use **`01_Hunting`** to filter noise and identify the smoking gun (e.g., suspicious PCAP or Prefetch).
-2.  **Record:** Log findings immediately into **`07_Reporting`** (Timeline Tracker).
-3.  **Analyze:** If malware is recovered, use **`04_Malware`** checklists to extract IOCs.
-4.  **Contain:** Follow **`03_Playbooks`** to isolate and remediate.
-5.  **Engineer:** Take the findings and write a new rule in **`02_Detection`** to catch it next time.
+### Phase 1: Triage & Detection
+* **Trigger:** Alert received or anomaly detected.
+* **Action:** Consult **`01_Hunting`** to interpret raw logs (Windows/Network).
+* **Documentation:** Open **`7.1_Timeline_Tracker.csv`** immediately to start logging the narrative (Red & Blue actions).
+
+### Phase 2: Investigation & Analysis
+* **Action:** Use **`06_Tool_Vault`** to execute precise forensic collection.
+* **Action:** Log all extracted files into **`7.2_Evidence_Artifact_Log.csv`** (Chain of Custody).
+* **Deep Dive:** If malware is recovered, analyze using **`04_Malware`** and produce **`7.3_Malware_Analysis_Report.md`**.
+
+### Phase 3: Containment & Intelligence
+* **Action:** Execute containment steps from **`03_Playbooks`** and log them in the Timeline.
+* **Attribution:** Pivot from artifacts to attribution using **`7.4_DFIR_to_CTI_Workbench.md`** (Diamond Model).
+
+### Phase 4: Deliverable
+* **Action:** Synthesize all findings into **`7.5_Final_Incident_Report.md`**.
+* **Feedback:** Create new rules in **`02_Detection`** to close the gap.
+
+---
+
+## 🛑 Standard Operation Procedure (SOP)
+
+1.  **Write it Down:** If it's not in the *Timeline Tracker*, it didn't happen.
+2.  **UTC is King:** All logs must be converted to UTC for correlation.
+3.  **Hash Everything:** Never extract a file without calculating its SHA256 immediately.
+4.  **Pivot:** Don't stop at the alert. Use the *CTI Workbench* to find the infrastructure behind the attack.
 
 ---
 
 ## ⚠️ Disclaimer
 
 * **For Defense Only:** The techniques described here are for defensive security analysis, incident response, and educational purposes.
-* **Context Matters:** Every environment is different. "Tuning" logic provided here should be validated against your own baseline before deployment in production.
+* **Context Matters:** Every environment is different. Validate logic before production deployment.
 
 ---
 
