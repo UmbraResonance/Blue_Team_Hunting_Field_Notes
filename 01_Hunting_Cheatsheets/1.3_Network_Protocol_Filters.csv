@@ -2,7 +2,7 @@
 TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size > 1024,TCP Connect Scan: Standard full handshake scan (Large Window)
 TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size <= 1024,SYN Scan: Stealth half-open scan signature (Small Window)
 ICMP,Recon,icmp.type == 3 and icmp.code == 3,UDP Scan Response: Port Unreachable (Confirms UDP scan on closed port)
-ICMP,C2,data.len > 48 and icmp,"ICMP Tunneling: Detects payloads larger than standard Ping (Windows=32b, Linux=48b)."
+ICMP,C2,icmp and data.len > 48,"ICMP Tunneling: Detects payloads larger than standard Ping (Windows=32b, Linux=48b)."
 ARP,Recon,arp.dst.hw_mac == 00:00:00:00:00:00,Host Discovery: ARP broadcast to identify live hosts
 ARP,Attack,arp.duplicate-address-detected,ARP Poisoning: Duplicate IP detected (Potential MitM)
 ARP,Attack,arp.opcode == 1,ARP Flood: High volume of requests (Check Statistics)
@@ -40,3 +40,9 @@ DHCP,Asset_ID,bootp.option.type == 12,Hostname Extraction: Identify the machine 
 DHCP,Asset_ID,bootp.option.type == 55,"OS Fingerprinting: Analyze ""Parameter Request List"" to infer OS type (Windows requests distinct params vs Linux)."
 NBNS,Asset_ID,nbns,NetBIOS Name: Identify Windows Hostnames and Workgroups on local subnet.
 SMB,Asset_ID,smb2.session_setup.request.type,Windows Build ID: SMB Session Setup often reveals the exact Native OS and Kernel Build version.
+TLS,Hunting,"tls.handshake.extensions_server_name contains ""KEYWORD""",SNI Hunt: Search the intended domain name in cleartext even if traffic is encrypted.
+TLS,Hunting,tls.handshake.ciphersuite == 0x0035,Weak Encryption: Detect usage of weak ciphers often used by legacy malware or C2.
+TLS,Intel,"tls.x509.Subject contains ""KEYWORD""",Cert Analysis: Hunt for suspicious Certificate Subject names (e.g. self-signed fake company names).
+TLS,Intel,"tls.x509.Issuer contains ""KEYWORD""",Cert Issuer: Identify free/automated SSL providers commonly abused by Phishing/C2.
+TLS,Indicator,tls.record.version == 0x0301,Protocol Version: Detect legacy TLS 1.0 traffic. Indicates outdated systems or malware beacons.
+TLS,Recon,tls.alert_message.level == 2,Fatal Alert: Detect failed handshakes. High volume indicates SSL Scanning.
