@@ -1,6 +1,8 @@
 ﻿Category,Investigation Goal (What we look for),Artifact Name (The Source),Path / Registry Key,Evidence Value (Analysis Tip)
 Windows_System,Establish OS Baseline,Registry: CurrentVersion,HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion,"Contains ProductName, ReleaseId, and InstallDate. Essential to verify if the image matches the victim machine."
 Windows_System,Determine Timezone,Registry: TimeZoneInformation,HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation,Identifies system bias from UTC. CRITICAL for creating a correct timeline.
+Windows_System,Recover Memory Strings,Pagefile.sys,C:\pagefile.sys,"Backing store for RAM. Contains strings (URLs, Cmdlines) from processes that were paged out. Critical if no RAM dump exists."
+Windows_System,Recover Memory Strings,Hibernation File,C:\hiberfil.sys,"Compressed snapshot of RAM saved during hibernation. Contains full memory artifacts (processes, connections) from that moment."
 Windows_Execution,Prove Program Execution,Prefetch Files (*.pf),C:\Windows\Prefetch\*.pf,"Tracks run count and last execution time (up to 8). Proof that a binary ran, not just existed."
 Windows_Execution,Find Deleted File Execution ,ShimCache (AppCompatCache),HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache,Tracks file metadata even if the file was deleted. Key evidence for 'dropped & executed' malware.
 Windows_Execution,Link Binary to Time ,Amcache (Amcache.hve),C:\Windows\appcompat\Programs\Amcache.hve,Contains SHA1 hashes and compilation timestamps. crucial for identifying specific malware versions.
