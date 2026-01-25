@@ -30,7 +30,7 @@ I built this repository to solve specific challenges I encounter in daily operat
 | :--- | :--- | :--- |
 | **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log & Artifact Reference** | "Eyes-on-glass" hunting. Rapid lookup for Event IDs, Process Genealogy, and Artifact paths. |
 | **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic \(Sigma/YARA\)** | Heuristic rules (YAML/Sigma) for SIEM/EDR engineering. |
-| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | SOPs for specific incident types (e.g., Phishing, Ransomware). |
+| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | SOPs for specific incident types (e.g., Phishing). |
 | **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)** | **Reverse Engineering Guides** | Reverse engineering checklists and lab command references. |
 | **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** | **Adversary Knowledge Base** | Adversary profiles (APTs) and Diamond Model strategies. |
 | **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **Command Syntax Library** | Pure command reference (KAPE, Volatility, Zimmerman Tools). |
@@ -57,7 +57,7 @@ How to utilize this repository during a live incident:
 * **Attribution:** Pivot from artifacts to attribution using **`7.4_DFIR_to_CTI_Workbench.md`** (Diamond Model).
 
 ### Phase 4: Deliverable
-* **Action:** Synthesize all findings into **`7.5_Final_Incident_Report.md`**.
+* **Action:** Synthesize all findings into **`77.5_Final_Incident_Report_Template.md`**.
 * **Feedback:** Create new rules in **`02_Detection`** to close the gap.
 
 ---
