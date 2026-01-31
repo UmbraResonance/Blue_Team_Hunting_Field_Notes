@@ -33,7 +33,7 @@ flowchart LR
         H --> I[Atomic Red Team:<br/>Attack Simulation]
         I -- Passed --> J[Production Rule<br/>Deployment]
         J --> L[Playbook Creation:<br/>Investigation Steps - Senior]
-        L --> M[KPI Definition:<br/>MTTR & Metrics - Lead]
+        L --> M[KPI & Risk Score Definition:<br/>MTTR & Metrics - Lead]
         M --> K[Continuous SOC<br/>Monitoring]
         K -- Feedback --> D
     end
