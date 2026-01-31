@@ -3,35 +3,44 @@
 This flowchart defines the standard operating procedure for developing new detection rules in this repository.
 
 ```mermaid
-%%{init: {"flowchart": {"htmlLabels": true, "curve": "linear", "padding": 20}}}%%
-flowchart TD
+%%{init: {"flowchart": {"htmlLabels": true, "curve": "linear", "padding": 15}}}%%
+flowchart LR
     %% Phase 1: Input and Strategy
     subgraph P1 ["Phase 1: Input & Strategy<br/>(CTI / IR Analyst)"]
-        A[CTI: Threat Intel & TTP Extraction] --> C{Requirement<br/>Assessment}
-        B[IR: Incident Post-Mortem & Review] --> C
+        direction TB
+        A[CTI: Threat Intel &<br/>TTP Extraction] --> C{Requirement<br/>Assessment}
+        B[IR: Incident Review<br/>& Post-Mortem] --> C
     end
 
     %% Phase 2: Logic Design
     subgraph P2 ["Phase 2: Detection Engineering<br/>(Detection Engineer)"]
+        direction TB
         C --> D[Use Case Design:<br/>Logic Modeling & Sigma]
         D --> E[Data Requirements:<br/>Fields & Schema Mapping]
     end
 
     %% Phase 3: Engineering Implementation
     subgraph P3 ["Phase 3: Security Engineering<br/>(Security Engineer)"]
+        direction TB
         E --> F[Gap Analysis:<br/>Visibility Gaps]
         F --> G[Ingestion & Pipeline:<br/>Parser & Normalization]
         G --> H[Data Quality Check:<br/>Schema & Latency]
     end
 
     %% Phase 4: Validation and Deployment
-    subgraph P4 ["Phase 4: Validation & Operations<br/>(Detection Engineer / Analyst)"]
+    subgraph P4 ["Phase 4: Validation & Ops<br/>(DE / SOC Analyst)"]
+        direction TB
         H --> I[Atomic Red Team:<br/>Attack Simulation]
-        I -- Test Failed --> G
-        I -- Test Passed --> J[Production Rule Deployment]
-        J --> K[Continuous SOC Monitoring]
+        I -- Failed --> G
+        I -- Passed --> J[Production Rule<br/>Deployment]
+        J --> K[Continuous SOC<br/>Monitoring]
         K -- Feedback --> D
     end
+
+    %% Global Connections
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
 
     %% Styling
     style A fill:#e1f5fe,stroke:#01579b
