@@ -27,13 +27,14 @@ flowchart LR
         G --> H[Data Quality Check:<br/>Schema & Latency]
     end
 
-    %% Phase 4: Validation, Ops & Knowledge
-    subgraph P4 ["Phase 4: Validation & Knowledge<br/>(Senior Analyst / DE)"]
+    %% Phase 4: Validation, Knowledge & Governance
+    subgraph P4 ["Phase 4: Validation & Governance<br/>(Senior / Team Lead / DE)"]
         direction TB
         H --> I[Atomic Red Team:<br/>Attack Simulation]
         I -- Passed --> J[Production Rule<br/>Deployment]
-        J --> L[Playbook Creation:<br/>Investigation Steps]
-        L --> K[Continuous SOC<br/>Monitoring]
+        J --> L[Playbook Creation:<br/>Investigation Steps - Senior]
+        L --> M[KPI Definition:<br/>MTTR & Metrics - Lead]
+        M --> K[Continuous SOC<br/>Monitoring]
         K -- Feedback --> D
     end
 
@@ -51,3 +52,4 @@ flowchart LR
     style H fill:#f3e5f5,stroke:#4a148c
     style J fill:#e8f5e9,stroke:#1b5e20
     style L fill:#fff9c4,stroke:#fbc02d
+    style M fill:#f1f8e9,stroke:#558b2f
