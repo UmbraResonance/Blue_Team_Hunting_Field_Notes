@@ -27,13 +27,13 @@ flowchart LR
         G --> H[Data Quality Check:<br/>Schema & Latency]
     end
 
-    %% Phase 4: Validation and Deployment
-    subgraph P4 ["Phase 4: Validation & Ops<br/>(DE / SOC Analyst)"]
+    %% Phase 4: Validation, Ops & Knowledge
+    subgraph P4 ["Phase 4: Validation & Knowledge<br/>(Senior Analyst / DE)"]
         direction TB
         H --> I[Atomic Red Team:<br/>Attack Simulation]
-        I -- Failed --> G
         I -- Passed --> J[Production Rule<br/>Deployment]
-        J --> K[Continuous SOC<br/>Monitoring]
+        J --> L[Playbook Creation:<br/>Investigation Steps]
+        L --> K[Continuous SOC<br/>Monitoring]
         K -- Feedback --> D
     end
 
@@ -50,3 +50,4 @@ flowchart LR
     style G fill:#f3e5f5,stroke:#4a148c
     style H fill:#f3e5f5,stroke:#4a148c
     style J fill:#e8f5e9,stroke:#1b5e20
+    style L fill:#fff9c4,stroke:#fbc02d
