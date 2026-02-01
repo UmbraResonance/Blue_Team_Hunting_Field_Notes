@@ -22,6 +22,7 @@ I built this repository to solve specific challenges I encounter in daily operat
 2.  **Detection-as-Code:** Moving from manual hunting queries to automated detection rules to prevent recurrence.
 3.  **Strict SOPs:** Standardized templates to ensure findings are recorded with legal and forensic precision (Chain of Custody).
 4.  **Engineering-First Approach:** Detections are not just "queries"; they follow a strict Detection Development Lifecycle (DDLC) to ensure quality, vendor-neutrality, and verifiable results.
+5. **First-Principles Thinking:** Operational commands (01, 06) are backed by deep OS internals knowledge (08). We don't just run queries; we understand how the kernel generates the artifacts (e.g., Access Tokens, SACLs).
 
 ---
 
@@ -29,13 +30,14 @@ I built this repository to solve specific challenges I encounter in daily operat
 
 | Directory | Purpose | Key Use Case |
 | :--- | :--- | :--- |
-| **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log & Artifact Reference** | "Eyes-on-glass" hunting. Rapid lookup for Event IDs, Process Genealogy, and Artifact paths. |
+| **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log Strategy & Reference** | "Eyes-on-glass" hunting. Event ID prioritization (P0-P2), Process Genealogy, and Artifact paths. |
 | **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic \(Sigma/YARA\)** | Heuristic rules driven by the [DDLC Framework](./02_Detection_Rules/!DDLC_Workflow.md). |
 | **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | SOPs for specific incident types (e.g., Phishing). |
 | **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)** WIP| **Reverse Engineering Guides** | Reverse engineering checklists and lab command references. |
 | **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** WIP| **Adversary Knowledge Base** | Adversary profiles (APTs) and Diamond Model strategies. |
 | **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **Command Syntax Library** | Pure command reference (KAPE, Volatility, Zimmerman Tools). |
 | **[`07_Reporting`](./07_Reporting_Templates/)** | **Documentation & Evidence** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
+| **[`08_Underlying_Principles`](./08_Underlying_Principles/)** | **OS Internals & Theory** | **The "Why".** Deep dives into Windows Internals (Tokens, SACLs) to support logic construction. |
 
 ---
 
@@ -60,6 +62,10 @@ How to utilize this repository during a live incident:
 ### Phase 4: Deliverable
 * **Action:** Synthesize all findings into **`77.5_Final_Incident_Report_Template.md`**.
 * **Continuous Improvement:** Feed lessons learned back into the [DDLC Workflow](./02_Detection_Rules/!DDLC_Workflow.md) to develop new, verified detection rules.
+
+### Continuous Improvement (The Loop):
+* **Gap Analysis:** If a detection was missed, verify existing logic in `01_Hunting`.
+* **Deep Dive:** Consult 08_Underlying_Principles to understand the theoretical mechanism before writing new rules.
 
 ---
 
