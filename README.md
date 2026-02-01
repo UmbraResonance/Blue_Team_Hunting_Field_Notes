@@ -86,4 +86,4 @@ How to utilize this repository during a live incident:
 ---
 
 *Maintained by Juana | Cyber Security Analyst*
-*Last Updated: January 2026*
+*Last Updated: February 2026*
