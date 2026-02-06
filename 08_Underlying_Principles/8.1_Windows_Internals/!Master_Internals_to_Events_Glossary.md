@@ -10,6 +10,7 @@
 | **SID** | Security Identifier; a unique value used to identify a trustee (User/Group). | **4624**, **4634** (Logoff) | `8.1.2_Access_Tokens.md` |
 | **SACL** | System Access Control List; determines which access attempts generate audit records. | **4663** (Object Access) | `8.1.1_Object_Security_SACL.md` |
 | **Handle** | An abstract "Voucher" issued by the Kernel to allow a process to access a specific resource. | **4663** (Object Access) | `8.1.7_Security_Context_Tokens_Handles_and_Pointers.md` |
+| **Rundll32** | A trusted Windows utility used to execute code within DLLs; a high-frequency execution proxy. | **4688**, **Sysmon ID 1**, **Sysmon ID 7** | `8.1.12_Rundll32_Execution_and_DLL_Loading.md` |
 
 ## 2. Component Object Model (COM) & Registry
 
@@ -33,13 +34,4 @@
 * **Ring 3 vs Ring 0**: The fundamental split between unprivileged apps and the privileged Kernel.
 * **ETW (Event Tracing for Windows)**: The telemetry backbone used by EDRs to subscribe to provider data.
 * **AMSI (Antimalware Service Interface)**: The in-memory buffer scanner, often bypassed by Native/Manual Mapping techniques.
-
----
-
-### 💡 Hunting Implementation Tip:
-
-When performing **Threat Hunting**, follow this workflow:
-1.  **Observe**: See high volumes of **Event 4663** (Object Access Attempted) or suspicious **dllhost.exe** activity.
-2.  **Map**: Consult this glossary; Event 4663 maps to **Handle**, while **dllhost.exe** maps to **RPCSS/COM**.
-3.  **Analyze**: Use `8.1.9` to check if the process is inspecting its own **PEB** to detect your sandbox.
-4.  **Verify**: Check for **Unbacked Memory** (Manual Mapping) if Sysmon shows no Image Load for known malicious functions.
+* **DLL Search Order:** The specific sequence Windows follows to resolve and load libraries; manipulated during DLL Side-loading attacks to hijack execution.
