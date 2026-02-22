@@ -13,6 +13,8 @@ This module focuses on the **proactive auditing and hardening** of Active Direct
 | `Audit-ADSidHistory.ps1` | Scans for the `sIDHistory` attribute to identify potential SID Injection backdoors. | [8.2.01 Identity Principals] |
 | `Audit-LAPSSafetyCheck.ps1` | Verifies AD Schema confidentiality and audits OU delegation for LAPS passwords. | [8.2.04 Governance] |
 | `Find-ADUserClearText.ps1` | Greps AD user attributes (Description, Notes) for clear-text passwords. | N/A (Standard Audit) |
+| `Audit-ESC1AttackSurface.ps1` | Audits Certificate Templates for SAN impersonation (ESC1) and evaluates ACL exposure. | [8.2.15 AD CS ESC1 Logic] |
+| `Audit-CoercedAuthAttackSurface.ps1` | Audits attack surfaces for coerced authentication (MS-RPRN, MS-EFSR, MS-FSRVP) and AD CS Web Enrollment (ESC8). | [8.2.13 Coercion & ESC8 Logic] |
 
 ## 🚀 Usage
 
