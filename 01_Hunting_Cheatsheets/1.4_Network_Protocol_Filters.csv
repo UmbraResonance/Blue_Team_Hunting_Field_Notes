@@ -9,21 +9,22 @@ ARP,Attack,arp.opcode == 1,arp[6:2] == 1,ARP Flood: High volume of requests (Che
 HTTP,Triage,http.response.code == 200,N/A,Success: Successful HTTP requests (200 OK)
 HTTP,Recon,http.response.code == 404,N/A,Dir Busting: High volume indicates directory bruteforce/scanning
 HTTP,Recon,http.response.code == 401 || http.response.code == 403,N/A,Access Denied: Attempts to access restricted resources
-HTTP,Method,"http.request.method == ""POST""","tcp[((tcp[12] & 0xf0) >> 2):4] = 0x504F5354","Data Upload: Potential Webshell interaction, logon attempts or data exfiltration"
-HTTP,Method,"http.request.method == ""PUT""","tcp[((tcp[12] & 0xf0) >> 2):4] = 0x50555420",File Upload: Potential WebDAV malicious file upload
-HTTP,Method,"http.request.method == ""DELETE""","tcp[((tcp[12] & 0xf0) >> 2):4] = 0x44454C45",Resource Removal: Attempt to delete files/logs via API or WebDAV
+HTTP,Method,"http.request.method == ""POST""",tcp[((tcp[12] & 0xf0) >> 2):4] = 0x504F5354,"Data Upload: Potential Webshell interaction, logon attempts or data exfiltration"
+HTTP,Method,"http.request.method == ""PUT""",tcp[((tcp[12] & 0xf0) >> 2):4] = 0x50555420,File Upload: Potential WebDAV malicious file upload
+HTTP,Method,"http.request.method == ""DELETE""",tcp[((tcp[12] & 0xf0) >> 2):4] = 0x44454C45,Resource Removal: Attempt to delete files/logs via API or WebDAV
 HTTP,Indicator,"http.user_agent contains ""sqlmap"" || http.user_agent contains ""Nmap"" || http.user_agent contains ""Nikto""",N/A,Hack Tool: Default User-Agent from automated scanners
 HTTP,Exploit,"(ip contains ""jndi"") or ( ip contains ""Exploit"") or (frame contains ""jndi"") or ( frame contains ""Exploit"") or (http.user_agent contains ""$"") or (http.user_agent contains ""=="")  ",N/A,Exploit: JNDI injection attempt (CVE-2021-44228)
-TLS,Triage,tls.handshake.type == 1,"tcp[((tcp[12] & 0xf0) >> 2)] == 0x16 and tcp[((tcp[12] & 0xf0) >> 2) + 5] == 0x01",Client Hello: Identify initiation of secure connections. Source of SNI and JA3 data.
-FTP,Auth,"ftp.request.command == ""USER""","tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x55534552",Account Context: Identifies target username. Critical for attribution.
-FTP,Auth,"ftp.request.command == ""PASS""","tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x50415353",Credential Context: Captures cleartext password. Confirms if credential was leaked.
-FTP,Auth,ftp.response.code == 530,"tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x35333020",Brute Force: Login failed (Sequence of 530s)
-FTP,Auth,ftp.response.code == 230,"tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x32333020",Login Success: Successful authentication
-FTP,Enum,"ftp.request.command == ""LIST""","tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x4C495354",File Enumeration: Check files in current directory
-FTP,Nav,"ftp.request.command == ""CWD""","tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x43574420",Movement: Change Working Directory. Tracks attacker's lateral movement path.
-FTP,Nav,"ftp.request.command == ""PWD""","tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x50574420",Verification: Print Working Directory. Attacker confirming current location.
-FTP,Action,"ftp.request.command == ""RETR""","tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x52455452",Download: Attacker retrieved a file
-FTP,Action,"ftp.request.command == ""STOR""","tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x53544F52",Upload: Attacker uploaded a file
+TLS,Triage,tls.handshake.type == 1,tcp[((tcp[12] & 0xf0) >> 2)] == 0x16 and tcp[((tcp[12] & 0xf0) >> 2) + 5] == 0x01,Client Hello: Identify initiation of secure connections. Source of SNI and JA3 data.
+FTP,Auth,"ftp.request.command == ""USER""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x55534552,Account Context: Identifies target username. Critical for attribution.
+FTP,Auth,"ftp.request.command == ""PASS""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x50415353,Credential Context: Captures cleartext password. Confirms if credential was leaked.
+FTP,Auth,ftp.response.code == 530,tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x35333020,Brute Force: Login failed (Sequence of 530s)
+FTP,Auth,ftp.response.code == 230,tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x32333020,Login Success: Successful authentication
+FTP,Enum,"ftp.request.command == ""LIST""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x4C495354,File Enumeration: Check files in current directory
+FTP,Nav,"ftp.request.command == ""CWD""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x43574420,Movement: Change Working Directory. Tracks attacker's lateral movement path.
+FTP,Nav,"ftp.request.command == ""PWD""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x50574420,Verification: Print Working Directory. Attacker confirming current location.
+FTP,Action,"ftp.request.command == ""RETR""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x52455452,Download: Attacker retrieved a file
+FTP,Action,"ftp.request.command == ""STOR""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x53544F52,Upload: Attacker uploaded a file
+FTP,Exfiltration,ftp-data,tcp port 20,Data Channel: Isolate and extract transferred files (malware payloads or exfiltrated data). Note: BPF 'tcp port 20' only works for Active Mode.
 SMB,File Transfer,smb.cmd == 0xA2,N/A,SMB File Transfer: Detect NT Create AndX (File creation/opening)
 DNS,C2,dns.flags.response == 0,udp port 53 and udp[10] & 128 == 0,Beaconing Analysis: Filter queries to calculate frequency (Jitter/Interval)
 DNS,Exfil,dns.qry.name.len > 15 and !mdns,N/A,Long Subdomains: Detects data exfiltration encoded in long subdomains (Tunneling).
@@ -44,7 +45,7 @@ TLS,Hunting,"tls.handshake.extensions_server_name contains ""KEYWORD""",N/A,SNI 
 TLS,Hunting,tls.handshake.ciphersuite == 0x0035,N/A,Weak Encryption: Detect usage of weak ciphers often used by legacy malware or C2.
 TLS,Intel,"tls.x509.Subject contains ""KEYWORD""",N/A,Cert Analysis: Hunt for suspicious Certificate Subject names (e.g. self-signed fake company names).
 TLS,Intel,"tls.x509.Issuer contains ""KEYWORD""",N/A,Cert Issuer: Identify free/automated SSL providers commonly abused by Phishing/C2.
-TLS,Indicator,tls.record.version == 0x0301,"tcp[((tcp[12] & 0xf0) >> 2) + 1:2] == 0x0301",Protocol Version: Detect legacy TLS 1.0 traffic. Indicates outdated systems or malware beacons.
-TLS,Recon,tls.alert_message.level == 2,"tcp[((tcp[12] & 0xf0) >> 2)] == 0x15 and tcp[((tcp[12] & 0xf0) >> 2) + 5] == 0x02",Fatal Alert: Detect failed handshakes. High volume indicates SSL Scanning.
+TLS,Indicator,tls.record.version == 0x0301,tcp[((tcp[12] & 0xf0) >> 2) + 1:2] == 0x0301,Protocol Version: Detect legacy TLS 1.0 traffic. Indicates outdated systems or malware beacons.
+TLS,Recon,tls.alert_message.level == 2,tcp[((tcp[12] & 0xf0) >> 2)] == 0x15 and tcp[((tcp[12] & 0xf0) >> 2) + 5] == 0x02,Fatal Alert: Detect failed handshakes. High volume indicates SSL Scanning.
 NTLM,Auth,"ntlmssp.auth.username == ""KEYWORD""",N/A,NTLM Hunt: Search for specific user authentication in PCAP.
 Kerberos,Auth,"kerberos.CNameString == ""KEYWORD""",N/A,Kerberos Hunt: Search for specific client ticket requests.
