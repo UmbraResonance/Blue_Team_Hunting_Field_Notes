@@ -51,3 +51,5 @@ TLS,Indicator,tls.record.version == 0x0301,tcp[((tcp[12] & 0xf0) >> 2) + 1:2] ==
 TLS,Recon,tls.alert_message.level == 2,tcp[((tcp[12] & 0xf0) >> 2)] == 0x15 and tcp[((tcp[12] & 0xf0) >> 2) + 5] == 0x02,Fatal Alert: Detect failed handshakes. High volume indicates SSL Scanning.
 NTLM,Auth,"ntlmssp.auth.username == ""KEYWORD""",N/A,NTLM Hunt: Search for specific user authentication in PCAP.
 Kerberos,Auth,"kerberos.CNameString == ""KEYWORD""",N/A,Kerberos Hunt: Search for specific client ticket requests.
+802.11,Attack,wlan.fc.type == 0) and (wlan.fc.type_subtype == 12) and (wlan.fixed.reason_code == 7 or and (wlan.fixed.reason_code == 6),N/A,Deauthentication Attack
+802.11,Hunting,(wlan.fc.type == 0) and (wlan.fc.type_subtype == 11),N/A,Auth Failure Hunting
