@@ -3,9 +3,11 @@ TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size > 1024,t
 TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size <= 1024,tcp[13] & 18 == 2 and tcp[14:2] <= 1024,SYN Scan: Stealth half-open scan signature (Small Window)
 ICMP,Recon,icmp.type == 3 and icmp.code == 3,icmp[0] == 3 and icmp[1] == 3,UDP Scan Response: Port Unreachable (Confirms UDP scan on closed port)
 ICMP,C2,icmp and data.len > 48,icmp and ip[2:2] - ((ip[0] & 0x0f) * 4) - 8 > 48,"ICMP Tunneling: Detects payloads larger than standard Ping (Windows=32b, Linux=48b)."
-ARP,Recon,arp.dst.hw_mac == 00:00:00:00:00:00,arp[18:4] == 0 and arp[22:2] == 0,Host Discovery: ARP broadcast to identify live hosts
+ARP,Attack,arp.dst.hw_mac == 00:00:00:00:00:00,arp[18:4] == 0 and arp[22:2] == 0,Host Discovery: ARP broadcast to identify live hosts
+ARP,Attack,arp.isgratuitous == 1,,"GARP Abuse: Detects unsolicited ARP announcements, frequently used to poison ARP caches for MitM attacks."
 ARP,Attack,arp.duplicate-address-detected,N/A,ARP Poisoning: Duplicate IP detected (Potential MitM)
 ARP,Attack,arp.opcode == 1,arp[6:2] == 1,ARP Flood: High volume of requests (Check Statistics)
+ARP,Attack,arp.opcode == 2 and eth.dst == ff:ff:ff:ff:ff:ff,arp[6:2] == 2,"ARP DoS / Abnormal Response: Identifies ARP replies (opcode 2) sent to a broadcast address or resolving to blackhole MACs, causing denial of service."
 HTTP,Triage,http.response.code == 200,N/A,Success: Successful HTTP requests (200 OK)
 HTTP,Recon,http.response.code == 404,N/A,Dir Busting: High volume indicates directory bruteforce/scanning
 HTTP,Recon,http.response.code == 401 || http.response.code == 403,N/A,Access Denied: Attempts to access restricted resources
