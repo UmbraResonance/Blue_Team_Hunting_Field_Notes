@@ -1,7 +1,7 @@
 ﻿Protocol,Category,Filter Syntax (Wireshark),BPF / Tcpdump Filter,Description/Use Case
 TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size > 1024,tcp[13] & 18 == 2 and tcp[14:2] > 1024,TCP Connect Scan: Standard full handshake scan (Large Window)
 TCP,Recon,tcp.flags.syn == 1 and tcp.flags.ack == 0 and tcp.window_size <= 1024,tcp[13] & 18 == 2 and tcp[14:2] <= 1024,SYN Scan: Stealth half-open scan signature (Small Window)
-ICMP,Recon,icmp.type == 3 and icmp.code == 3,icmp[0] == 3 and icmp[1] == 3,UDP Scan Response: Port Unreachable (Confirms UDP scan on closed port)
+ICMP,Recon,icmp.type == 3 and icmp.code == 3,icmp[0] == 3 and icmp[1] == 3,
 ICMP,C2,icmp and data.len > 48,icmp and ip[2:2] - ((ip[0] & 0x0f) * 4) - 8 > 48,"ICMP Tunneling: Detects payloads larger than standard Ping (Windows=32b, Linux=48b)."
 ARP,Attack,arp.dst.hw_mac == 00:00:00:00:00:00,arp[18:4] == 0 and arp[22:2] == 0,Host Discovery: ARP broadcast to identify live hosts
 ARP,Attack,arp.isgratuitous == 1,,"GARP Abuse: Detects unsolicited ARP announcements, frequently used to poison ARP caches for MitM attacks."
