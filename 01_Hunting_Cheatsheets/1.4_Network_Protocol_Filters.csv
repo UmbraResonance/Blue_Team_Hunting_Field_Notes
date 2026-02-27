@@ -16,6 +16,7 @@ HTTP,Method,"http.request.method == ""PUT""",tcp[((tcp[12] & 0xf0) >> 2):4] = 0x
 HTTP,Method,"http.request.method == ""DELETE""",tcp[((tcp[12] & 0xf0) >> 2):4] = 0x44454C45,Resource Removal: Attempt to delete files/logs via API or WebDAV
 HTTP,Indicator,"http.user_agent contains ""sqlmap"" || http.user_agent contains ""Nmap"" || http.user_agent contains ""Nikto""",N/A,Hack Tool: Default User-Agent from automated scanners
 HTTP,Exploit,"(ip contains ""jndi"") or ( ip contains ""Exploit"") or (frame contains ""jndi"") or ( frame contains ""Exploit"") or (http.user_agent contains ""$"") or (http.user_agent contains ""=="")  ",N/A,Exploit: JNDI injection attempt (CVE-2021-44228)
+HTTP,Exploit,"http.request.uri contains ""%0d%0a""",,Detecting CRLF in URL paths / HTTP response splitting injection attempts
 TLS,Triage,tls.handshake.type == 1,tcp[((tcp[12] & 0xf0) >> 2)] == 0x16 and tcp[((tcp[12] & 0xf0) >> 2) + 5] == 0x01,Client Hello: Identify initiation of secure connections. Source of SNI and JA3 data.
 FTP,Auth,"ftp.request.command == ""USER""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x55534552,Account Context: Identifies target username. Critical for attribution.
 FTP,Auth,"ftp.request.command == ""PASS""",tcp port 21 and tcp[((tcp[12] & 0xf0) >> 2):4] = 0x50415353,Credential Context: Captures cleartext password. Confirms if credential was leaked.
@@ -32,6 +33,9 @@ DNS,C2,dns.flags.response == 0,udp port 53 and udp[10] & 128 == 0,Beaconing Anal
 DNS,Exfil,dns.qry.name.len > 15 and !mdns,N/A,Long Subdomains: Detects data exfiltration encoded in long subdomains (Tunneling).
 DNS,C2,dns.qry.type == 16,N/A,TXT Record C2: Detects TXT records often used to carry C2 payloads (Base64).
 DNS,C2,dns.count.answers > 10,udp port 53 and udp[14:2] > 10,Fast Flux: High number of IP resolutions returned for a single domain.
+DNS,Payload Delivery,"dns contains ""This program cannot be run in DOS mode""",N/A,"Highly precise signature to detect Windows PE (Portable Executable) files being transferred over DNS. Attackers often use this to smuggle malicious payloads into the network, bypassing standard web proxies and perimeter firewalls."
+DNS,Malware / C2,dns && !mdns && (dns.flags.rcode == 3),udp port 53 and (udp[11] & 0x0F == 3),"Detects DNS responses with the NXDomain (Non-Existent Domain) status code, filtering out noisy local mDNS traffic. A massive spike in these responses from a single internal host is a strong indicator of a malware infection employing a Domain Generation Algorithm (DGA) to locate its command and control infrastructure."
+DNS,Hunting,dns.qry.type == 255,N/A,"Detects DNS ANY queries. Attackers leverage this for rapid infrastructure enumeration (extracting all records at once) or as an amplification vector for DDoS attacks. Extremely rare in modern, benign application traffic."
 Global,Hunting,"frame contains ""KEYWORD""",N/A,"Nuclear Search: Search ENTIRE packet (Headers Body Hex) for a string. Best for initial blind hunting.,High noise if keyword is common (e.g. ""com"")."
 Global,Hunting,"frame matches ""(?i)KEYWORD""",N/A,"Case-Insensitive Hunt: Regex search ignoring case (e.g. finds 'Admin' 'admin' 'ADMIN'). Crucial for evasion detection.,Computationally expensive on large PCAPs."
 HTTP,Hunting,"http.request.uri contains ""KEYWORD""",N/A,Path Hunting: Search specifically in file paths/directories (e.g. .bak .config private)
