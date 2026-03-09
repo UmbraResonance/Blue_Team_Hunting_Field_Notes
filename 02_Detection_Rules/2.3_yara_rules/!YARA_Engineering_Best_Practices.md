@@ -21,9 +21,9 @@ Applying appropriate modifiers is critical to reducing false positives and catch
 **Headless Static Extraction (Bash One-Liner):**
 Extracts both ASCII and Wide strings, prepended with their decimal offsets, and sorted by physical location:
 
-    ```bash
+```bash
     ( strings -a -td "$@" | sed 's/^\(\s*[0-9][0-9]*\) \(.*\)$/\1 A \2/' ; strings -a -td -el "$@" | sed 's/^\(\s*[0-9][0-9]*\) \(.*\)$/\1 W \2/' ) | sort -n
-    ```
+```
 ## 3. PE Structure Validation
 
 Relying solely on file extensions or the `MZ` magic byte is insufficient for advanced threat hunting.
@@ -32,7 +32,7 @@ Relying solely on file extensions or the `MZ` magic byte is insufficient for adv
 
 Implement a two-step validation to confirm a valid PE structure by dynamically traversing the `e_lfanew` pointer. This ensures the file is a legitimate executable and not a truncated or spoofed binary.
 
-    ```yara
+```yara
     import "pe"
 
     rule Is_Valid_PE {
@@ -41,7 +41,7 @@ Implement a two-step validation to confirm a valid PE structure by dynamically t
             // 2. Read 32-bit pointer at 0x3c, jump to that offset, and check for PE (0x4550)
             uint16(0) == 0x5A4D and uint16(uint32(0x3c)) == 0x4550
     }
-    ```
+```
 
 ### 3.2 .NET Metadata & Assembly Identification (Specific)
 
@@ -49,6 +49,7 @@ Unlike native binaries, .NET executables contain a secondary header structure (C
 
 * **Navigation Pointer Chain:** `DOS Header (0x00)` -> `e_lfanew (0x3c)` -> `PE Header` -> `Optional Header` -> `Data Directory 15` -> `CLI Header` -> `MetaData Root` -> `BSJB Signature`.
 
+```yara
     import "pe"
     import "dotnet"
 
@@ -57,6 +58,7 @@ Unlike native binaries, .NET executables contain a secondary header structure (C
             // Verify via the COM Descriptor Directory (Entry 15) or the dotnet module
             dotnet.is_dotnet or pe.data_directories[pe.IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].size > 0
     }
+```
 
 ## 4. Heuristic & Structural Anomaly Detection
 
