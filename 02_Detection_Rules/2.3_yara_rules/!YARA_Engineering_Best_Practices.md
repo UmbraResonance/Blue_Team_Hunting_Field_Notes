@@ -71,12 +71,13 @@ When hunting for hidden payloads, decouple the **core structural match** from **
 
 **Core Structural Logic (The "What"):**
 Identifies the presence of high-entropy resource blocks which suggest encrypted or packed content.
-    ```yara
+
+```yara
     for any i in (0..pe.number_of_resources - 1): (
         math.entropy(pe.resources[i].offset, pe.resources[i].length) > 7.5 and
         pe.resources[i].length > 10KB
     )
-    ```
+```
 
 **Heuristic Enhancement Filters (The "Context"):**
 Optional constraints to be added based on the specific environment and target threat profile.
