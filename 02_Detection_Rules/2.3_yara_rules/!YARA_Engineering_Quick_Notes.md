@@ -1,4 +1,4 @@
-# YARA Engineering & Deep Static Analysis Field Notes
+# YARA Engineering Quick Notes
 
 ## 1. OPSEC & Deployment Strategy
 
