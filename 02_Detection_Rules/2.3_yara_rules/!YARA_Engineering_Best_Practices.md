@@ -67,36 +67,26 @@ Unlike native binaries, .NET executables contain a secondary header structure (C
 
 ### 4.2 Bounded Searching & Funnel Logic (Detection Optimization)
 
-Use structural counters as the first layer of the "detection funnel" to minimize CPU-intensive operations before iterating through resources.
+When hunting for hidden payloads, decouple the **core structural match** from **contextual heuristics**.
 
-* **Heuristic Thresholds:**
-    * `pe.number_of_sections > 4`: Detects unusual section counts common in custom packers or multi-stage injectors.
-    * `pe.number_of_signatures == 0`: High-risk indicator for unsigned binaries in enterprise environments.
-    * `pe.number_of_resources`: Typically 1-15 for standalone malware droppers; legitimate commercial software often exceeds 50.
+**Core Structural Logic (The "What"):**
+Identifies the presence of high-entropy resource blocks which suggest encrypted or packed content.
+    ```yara
+    for any i in (0..pe.number_of_resources - 1): (
+        math.entropy(pe.resources[i].offset, pe.resources[i].length) > 7.5 and
+        pe.resources[i].length > 10KB
+    )
+    ```
 
-**Universal Template: Hunting Obfuscated Resource Payloads**
+**Heuristic Enhancement Filters (The "Context"):**
+Optional constraints to be added based on the specific environment and target threat profile.
 
-```yara
-    import "pe"
-    import "math"
+* **Binary Type Filters:**
+    * `pe.number_of_signatures == 0`: Use if the target environment enforces signed binaries.
+    * `pe.number_of_sections > 4`: Use to catch custom packers or multi-stage loaders.
+    * `pe.number_of_resources < 20`: Use to filter out complex commercial applications.
 
-    rule Detect_Heuristic_Resource_Payload {
-        condition:
-            // Level 1: Initial Funnel (Fast structural checks)
-            pe.number_of_signatures == 0 and
-            pe.number_of_sections > 4 and
-            pe.number_of_resources < 15 and
-            
-            // Level 2: Targeted Iteration (Deep content checks)
-            for any i in (0..pe.number_of_resources - 1): (
-                pe.resources[i].length > 20KB and
-                math.entropy(pe.resources[i].offset, pe.resources[i].length) > 7.5 and
-                
-                // Bounded search: Ensure the block is not a plaintext PE file
-                not ( "This program cannot be run in DOS mode." in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length) )
-                
-                // Optional: Match specific CTI-derived Resource IDs or Languages
-                // pe.resources[i].id == <TARGET_ID> or pe.resources[i].language == 0
-            )
-    }
-```    
+* **Deep Content Filters:**
+    * `not ( "This program cannot be run in DOS mode." in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length) )`: Ensures the resource itself is not just another plain PE file.
+    * `pe.resources[i].language == 0`: Targets "Language Neutral" resources, common in malicious payloads.
+    * `pe.resources[i].id == <TARGET_ID>`: Use when hunting for a specific threat actor known to hardcode resource IDs.
