@@ -62,7 +62,7 @@ Use structural counters as the first layer of the "detection funnel" to minimize
 
 **Example: Refined Hunting for Encrypted Resource Payloads**
 
-    ```yara
+```yara
     import "pe"
     import "math"
 
@@ -82,4 +82,4 @@ Use structural counters as the first layer of the "detection funnel" to minimize
                 not ( "This program cannot be run in DOS mode." in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length) )
             )
     }
-    ```
+```
