@@ -88,6 +88,7 @@ Optional constraints to be added based on the specific environment and target th
     * `pe.number_of_signatures == 0`: Use if the target environment enforces signed binaries.
     * `pe.number_of_sections > 4`: Use to catch custom packers or multi-stage loaders.
     * `pe.number_of_resources < 20`: Use to filter out complex commercial applications.
+    * `pe.data_directories[pe.IMAGE_DIRECTORY_ENTRY_DEBUG].size == 0`: [Anti-Forensics/OpSec Indicator] Identifies PE files where the Debug Directory is missing or zeroed out. This indicates a deliberate effort by the author to strip PDB paths and conceal build environment metadata, perfectly aligning with the profile of advanced actors practicing strict operational security. Pair this with the signature absence for high-fidelity hunting.
 
 * **Deep Content Filters:**
     * `not ( "This program cannot be run in DOS mode." in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length) )`: Ensures the resource itself is not just another plain PE file.
