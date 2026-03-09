@@ -94,3 +94,29 @@ Optional constraints to be added based on the specific environment and target th
     * `not ( "This program cannot be run in DOS mode." in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length) )`: Ensures the resource itself is not just another plain PE file.
     * `pe.resources[i].language == 0`: Targets "Language Neutral" resources, common in malicious payloads.
     * `pe.resources[i].id == <TARGET_ID>`: Use when hunting for a specific threat actor known to hardcode resource IDs.
+
+## 5. Signature Engineering Best Practices & Limitations
+
+### 5.1 String Definition Optimization (Hex vs. Text)
+
+Confusing the use cases for text and hexadecimal strings leads to unmaintainable rule repositories and poor scanning performance. Never blindly convert readable ASCII/Wide strings into hex bytes just to utilize the hex engine.
+
+* **Text Strings:** Prioritize explicit text definitions (`"string" ascii wide nocase`) for human-readable artifacts such as file paths, Mutex names, PDB paths, and hardcoded C2 domains. This preserves rule readability and significantly lowers maintenance overhead for other analysts.
+* **Hexadecimal Strings:** Strictly reserve hex strings (`{ 01 A2 ?? FF }`) for matching machine code (Assembly Opcodes), magic bytes, or specific binary payload signatures (e.g., injected shellcode). 
+* **Dynamic Hex Matching:** Utilize wildcards (`?`) or jumps (`[1-4]`) within hex strings to account for variable bytes in opcodes caused by different compilers, registers, or minor obfuscation techniques.
+    ```yara
+    // BAD Practice: Converting a readable PDB path to Hex (Unmaintainable)
+    $pdb_bad = { 43 3A 5C 63 72 79 73 69 73 5C 52 65 6C 65 61 73 65 }
+    
+    // GOOD Practice: Clear, readable text definition
+    $pdb_good = "C:\\crysis\\Release" ascii nocase
+    
+    // CORRECT Hex Usage: Hunting for Shellcode (Opcodes) in Memory
+    // 648b ??30 corresponds to 'mov edx, fs:[???+0x30]' (PEB parsing technique)
+    $shellcode_mov = { 64 8b ?? 30 } 
+    ```
+
+### 5.2 Scope Limitations: YARA vs. Structured Telemetry
+
+* **The Anti-Pattern:** Applying YARA's flat string matching against highly structured, JSON-like telemetry (e.g., ETW streams, Windows Event Logs) is computationally expensive and fragile in a production SOC environment. For example, a YARA rule looking for `$s = "Write-Host"` will completely fail if the adversary uses basic tick obfuscation (e.g., ``W`r`i`t`e`-`H`o`s`t``).
+* **The Pivot to SIEM/Sigma:** YARA is inherently designed for contiguous blocks of memory or flat files on disk. For structured log data, the engineering best practice is to forward the events to a SIEM (via agents like Sysmon) and utilize structured detection logic such as Sigma. This allows for evaluating specific key-value pairs (e.g., mapping `EventID: 4104` to parsed `ScriptBlockText` fields), creating robust detection mechanisms that are immune to simple flat-string evasion.
