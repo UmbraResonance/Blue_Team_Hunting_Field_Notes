@@ -18,9 +18,9 @@ When conducting triage in a headless Linux environment without access to advance
 
 **Headless Static Extraction (Bash One-Liner):**
 Extracts both ASCII and Wide strings, prepends their decimal offsets, and sorts them by physical location to reconstruct the contextual order of strings within the binary:
-```bash
+    ```bash
     ( strings -a -td "$@" | sed 's/^\(\s*[0-9][0-9]*\) \(.*\)$/\1 A \2/' ; strings -a -td -el "$@" | sed 's/^\(\s*[0-9][0-9]*\) \(.*\)$/\1 W \2/' ) | sort -n
-```
+    ```
 
 *Note: For comprehensive extraction, especially involving stack strings or encoded payloads, default to Mandiant FLOSS in the analysis pipeline.*
 
@@ -30,7 +30,9 @@ Relying solely on file extensions or the `MZ` magic byte is insufficient, as adv
 ### 3.1 The Golden Standard PE Check
 Implement a two-step validation to definitively confirm a valid Windows Portable Executable structure. This checks the DOS header and dynamically traverses the `e_lfanew` pointer to verify the NT Header.
 
-```yara
+* **Navigation Pointer Chain:** `DOS Header (0x00)` -> `e_lfanew (0x3c)` -> `PE Header` -> `Optional Header` -> `Data Directory 15` -> `CLI Header` -> `MetaData Root` -> `BSJB Signature`.
+
+    ```yara
     import "pe"
 
     rule Is_Valid_PE {
@@ -39,25 +41,9 @@ Implement a two-step validation to definitively confirm a valid Windows Portable
             // 2. Read 32-bit pointer at 0x3c, jump to that offset, and check for PE (0x4550)
             uint16(0) == 0x5A4D and uint16(uint32(0x3c)) == 0x4550
     }
-```
+    ```
 
-### 3.2 .NET Assembly Identification
-Avoid using full-text searches for the `.NET` magic string (`BSJB`), as it is prone to false positives or evasion.
-* **Best Practice:** Verify the presence of the 15th Data Directory (COM Descriptor Directory/CLR Runtime Header).
-
-```yara
-    import "pe"
-    import "dotnet"
-
-    rule Is_DotNet_Executable {
-        condition:
-            // Method A: Built-in dotnet module validation
-            dotnet.is_dotnet 
-            
-            // Method B: Raw PE structure validation (Checking COM Descriptor Directory size)
-            // pe.data_directories[pe.IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].size > 0
-    }
-```
+---
 
 ## 4. Heuristic & Structural Anomaly Detection
 Transitioning from static string matching to behavioral and structural profiling is required for advanced threats (e.g., packed payloads, wipers).
@@ -66,24 +52,34 @@ Transitioning from static string matching to behavioral and structural profiling
 * **Metric:** Shannon Entropy evaluates data randomness on a scale of `0.0` to `8.0`.
 * **Indicator of Compromise (IOC):** Sections (particularly `.rsrc` or unusually named sections) with an entropy value strictly greater than `7.5` strongly indicate compression, packing, or encryption.
 
-### 4.2 Bounded Searching via Iteration
-Use YARA's `for` loops to dynamically iterate through structured arrays (like PE resources or sections) to pinpoint localized anomalies without scanning the global file scope.
+### 4.2 Bounded Searching & Funnel Logic
+Use structural counters as the first layer of the "detection funnel" to minimize CPU-intensive operations (like entropy calculations) before iterating through resources.
 
-**Example: Hunting Encrypted Payloads in Resource Sections**
+* **Heuristic Thresholds:**
+    * `pe.number_of_sections > 4`: Identifies unusual section counts typical of packers or injectors.
+    * `pe.number_of_signatures == 0`: High suspicion if combined with malicious behavior (legitimate commercial software is usually signed).
+    * `pe.number_of_resources > 1 and pe.number_of_resources < 15`: Typical resource count for standalone malware droppers; filters out complex legitimate software.
 
-```yara
+**Example: Refined Hunting for Encrypted Resource Payloads**
+
+    ```yara
     import "pe"
     import "math"
 
-    rule Detect_High_Entropy_Resource_Payload {
+    rule Detect_Advanced_Obfuscated_Payload {
         condition:
-            // Iterate through all resource sections
+            // Level 1: Fast Structural Triage
+            filesize < 1MB and 
+            pe.number_of_signatures == 0 and
+            pe.number_of_sections > 4 and
+            
+            // Level 2: Precision Resource Iteration
             for any i in (0..pe.number_of_resources - 1): (
-                // 1. Check if the specific resource block is highly obfuscated/encrypted
+                pe.resources[i].id == 101 and          // Specific CTI-linked Resource ID
+                pe.resources[i].language == 0 and      // Language Neutral (0)
+                pe.resources[i].length > 20KB and      // Minimum payload size threshold
                 math.entropy(pe.resources[i].offset, pe.resources[i].length) > 7.8 and
-                
-                // 2. Ensure the embedded payload does not expose a plaintext DOS stub
                 not ( "This program cannot be run in DOS mode." in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length) )
             )
     }
-```
+    ```
