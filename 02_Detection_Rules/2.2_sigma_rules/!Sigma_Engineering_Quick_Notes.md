@@ -72,7 +72,7 @@ Used for temporal statistical detections (e.g., Brute Force, Password Spray, Exf
 *Template:*
 `condition: <selection> | count(<Field_To_Count>) by <Grouping_Field> > <Threshold>`
 
-    ```yaml
+```yaml
     detection:
         selection:
             EventID: 4776
@@ -80,13 +80,13 @@ Used for temporal statistical detections (e.g., Brute Force, Password Spray, Exf
             Workstation: '*'
         # Triggers if a single workstation attempts >3 distinct users
         condition: selection | count(TargetUserName) by Workstation > 3
-    ```
+```
 
 ## 5. False Positive Management (Robust Condition Pattern)
 
 Do not mix malicious indicators and whitelist exclusions in the same block. Use the `1 of filter_*` condition pattern for modular exception management.
 
-    ```yaml
+```yaml
     detection:
         selection_core:
             TargetImage|endswith: '\lsass.exe'
@@ -96,7 +96,7 @@ Do not mix malicious indicators and whitelist exclusions in the same block. Use 
             SourceImage|contains: '\Veeam\Backup\'
         # Modular condition logic
         condition: selection_core and not 1 of filter_*
-    ```
+```
 
 ## 6. Pipeline Conversion Constraints
 
