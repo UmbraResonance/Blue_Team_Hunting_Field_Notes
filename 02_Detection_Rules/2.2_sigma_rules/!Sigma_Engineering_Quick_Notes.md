@@ -80,11 +80,10 @@ Used for temporal statistical detections (e.g., Brute Force, Password Spray, Exf
 ```yaml
     detection:
         selection:
-            EventID: 4776
-            TargetUserName: '*' # Required: Asserts field existence for SIEM parser
-            Workstation: '*'
-        # Triggers if a single workstation attempts >3 distinct users
-        condition: selection | count(TargetUserName) by Workstation > 3
+            EventID: <Target_Event_ID>
+            <Field_To_Count>: '*' # Required: Asserts field existence for SIEM parser
+            <Grouping_Field>: '*'
+        condition: selection | count(<Field_To_Count>) by <Grouping_Field> > <Threshold_Integer>
 ```
 
 ## 5. False Positive Management (Robust Condition Pattern)
