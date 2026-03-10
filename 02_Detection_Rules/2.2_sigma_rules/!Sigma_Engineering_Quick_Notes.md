@@ -93,13 +93,14 @@ Do not mix malicious indicators and whitelist exclusions in the same block. Use 
 ```yaml
     detection:
         selection_core:
-            TargetImage|endswith: '\lsass.exe'
-        filter_av:
-            SourceImage|startswith: 'C:\Program Files\CrowdStrike\'
-        filter_backup:
-            SourceImage|contains: '\Veeam\Backup\'
-        # Modular condition logic
-        condition: selection_core and not 1 of filter_*
+            <Target_Field_A>|endswith: '\<Malicious_Pattern>'
+            <Target_Field_B>: '<Suspicious_Value>'
+        filter_known_benign_1:
+            <Source_Field_A>: '<Known_Safe_Value>'
+        filter_known_benign_2:
+            <Source_Field_B>|startswith: '<Approved_Path_Pattern>\'
+        # Modular condition logic allows easy scaling of exclusions
+        condition: selection_core and not 1 of filter_known_benign_*
 ```
 
 ## 6. Pipeline Conversion Constraints
