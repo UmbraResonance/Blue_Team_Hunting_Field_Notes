@@ -7,7 +7,7 @@
 
 The core structure of a Sigma rule. Metadata fields are crucial for SOC alert triaging and MITRE ATT&CK coverage mapping.
 
-    ```yaml
+```yaml
     title: <Rule_Name_Summary>
     id: <UUIDv4>
     status: <experimental|test|stable|unsupported> # Use 'unsupported' if using advanced aggregations not universally supported by backends
@@ -26,7 +26,7 @@ The core structure of a Sigma rule. Metadata fields are crucial for SOC alert tr
         - <Known_benign_behavior_1>
         - <Known_benign_behavior_2>
     level: <low|medium|high|critical>
-    ```
+```
 
 ## 2. Logical Operations: Lists vs. Maps
 
