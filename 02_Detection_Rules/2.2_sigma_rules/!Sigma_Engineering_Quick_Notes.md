@@ -35,19 +35,24 @@ The most common point of failure in rule logic is confusing list and map behavio
 * **Lists (Array format `-`):** Evaluated as **OR**.
 * **Maps (Key-Value format):** Evaluated as **AND**.
 
-    # [OR Logic] Matches if EventID is 517 OR 1102
     ```yaml
+    # [OR Logic] Matches if <Field_A> equals <Value_1> OR <Value_2>
     selection:
-        EventID:
-            - 517
-            - 1102
-    ```
+        <Field_A>:
+            - '<Value_1>'
+            - '<Value_2>'
 
-    # [AND Logic] Matches if Target is lsass AND Access is 0x1010
-    ```yaml
+    # [AND Logic] Matches if <Field_A> equals <Value_1> AND <Field_B> equals <Value_2>
     selection:
-        TargetImage|endswith: '\lsass.exe'
-        GrantedAccess|endswith: '0x1010'
+        <Field_A>: '<Value_1>'
+        <Field_B>: '<Value_2>'
+
+    # [Combined Logic] Matches if (<Field_A> equals <Value_1>) AND (<Field_B> equals <Value_2> OR <Value_3>)
+    selection:
+        <Field_A>: '<Value_1>'
+        <Field_B>:
+            - '<Value_2>'
+            - '<Value_3>'
     ```
 
 ## 3. Value Modifiers
