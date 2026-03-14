@@ -107,5 +107,14 @@ Do not mix malicious indicators and whitelist exclusions in the same block. Use 
 
 * **Splunk (sigmac / pySigma):** Raw conversion generates global searches (performance killer). Always append environment-specific config files during conversion to inject `index` and `sourcetype`.
     *Command:* `python sigmac -t splunk <RULE.yml> -c splunk-windows.yml`
+
+* **Microsoft Sentinel (pySigma):** Default field mapping assumes ECS normalization. Always apply the `microsoft365defender` or `windows` pipeline during conversion to correctly resolve fields like `NewProcessName` → `InitiatingProcessFileName`. Inject the `workspace` parameter via backend config to avoid global table scans.
+    *Command:* `sigma convert -t microsoft365defender -p microsoft365defender <RULE.yml>`
+    *Watch for:* KQL does not support all Sigma aggregation conditions natively (e.g., `near`). Mark affected rules `status: unsupported`.
+
+* **Elastic (pySigma):** Field names follow ECS (Elastic Common Schema). Native Sigma fields (e.g., `CommandLine`) must map to ECS equivalents (e.g., `process.command_line`) via the `windows` pipeline. Verify mappings before deploying, as unmapped fields silently return zero results.
+    *Command:* `sigma convert -t lucene -p ecs_windows <RULE.yml>`
+    *Watch for:* Lucene does not support regex (`|re`) natively in all contexts — prefer EQL or ES|QL backends for regex-heavy rules.
+
 * **Chainsaw (Offline DFIR):**
     If valid rules return 0 hits, the mapping is broken. Chainsaw requires strict XML-path mapping definitions (`--mapping`) to translate generic Sigma fields (e.g., `NewProcessName`) into EVTX-specific structures.

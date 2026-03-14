@@ -62,7 +62,7 @@ How to utilize this repository during a live incident:
 * **Attribution:** Pivot from artifacts to attribution using **`7.4_DFIR_to_CTI_Workbench.md`** (Diamond Model).
 
 ### Phase 4: Deliverable
-* **Action:** Synthesize all findings into **`77.5_Final_Incident_Report_Template.md`**.
+* **Action:** Synthesize all findings into **`7.5_Final_Incident_Report_Template.md`**.
 * **Continuous Improvement:** Feed lessons learned back into the [DDLC Workflow](./02_Detection_Rules/!DDLC_Workflow.md) to develop new, verified detection rules.
 
 ### Continuous Improvement (The Loop):

@@ -30,13 +30,16 @@
 | :--- | :--- | :--- | :--- |
 | **Syscall** | The assembly instruction used to cross from User Mode (Ring 3) to Kernel Mode (Ring 0). | **Sysmon ID 25** (Process Tampering) | `8.1.05_The_User_Mode_Ecosystem_and_Call_Stack.md` |
 | **Direct Syscall** | An evasion technique where malware issues the Syscall directly, bypassing User-Land EDR hooks. | N/A (Thread Call Stack Analysis) | `8.1.05_The_User_Mode_Ecosystem_and_Call_Stack.md` |
+| **IOCTL / IRP** | The communication mechanism between user-mode applications and kernel drivers. IRPs are the "packets" the I/O Manager routes through driver Dispatch Tables; abused by rootkits via IRP Hooking to intercept and filter kernel operations. | N/A (Kernel Analysis) | `8.1.05_The_User_Mode_Ecosystem_and_Call_Stack.md` (Section 5) |
 | **PEB / TEB** | Process/Thread Environment Block; user-mode structures holding metadata like loaded modules and stack boundaries. | N/A (Memory Forensics) | `8.1.09_PEB_and_TEB_Structures.md` |
 | **VAS** | Virtual Address Space; the private, isolated memory space provided to each process. | N/A (Memory Forensics) | `8.1.16_Virtual_Address_Space_Architecture.md` |
+| **Pagefile / Swapfile** | OS-managed disk backing stores for RAM. `pagefile.sys` pages out individual 4KB memory blocks (including fileless malware's private allocations); `swapfile.sys` suspends entire UWP app working sets. Both are forensic goldmines for recovering decrypted payloads and cleartext strings post-termination. | N/A (Disk Forensics) | `8.1.24_Pagefile_and_Swapfile_Mechanics.md` |
 | **PE Format** | Portable Executable; the standard data structure dictating how a binary is mapped into memory. | N/A (Static Analysis) | `8.1.15_Portable_Executable_Architecture.md` |
 | **Rundll32** | A legitimate Windows host process used as a proxy to execute code within DLLs. | **4688**, **Sysmon ID 7** | `8.1.12_Rundll32.exe_Execution_Logic_and_Dynamic_Link_Library_(DLL)_Loading.md` |
 | **Manual Map** | Evasion technique where malware acts as its own loader to stay "fileless" in unbacked memory. | **Sysmon ID 7** (Missing Image Load) | `8.1.10_Manual_Mapping_and_IAT_Reconstruction.md` |
 | **EPROCESS** | The master operational structure residing in kernel memory that represents an active process and its metadata. | N/A (Memory Forensics: `pslist`/`psscan`) | `8.1.17_EPROCESS_and_DKOM_Mechanics.md` |
 | **DKOM** | Direct Kernel Object Manipulation; a rootkit stealth technique that hides a malicious process by unlinking its `EPROCESS` block from the `ActiveProcessLinks` chain. | N/A (Memory Forensics) | `8.1.17_EPROCESS_and_DKOM_Mechanics.md` |
+| **PsLoadedModuleList** | The kernel's authoritative doubly-linked list tracking all loaded driver (`.sys`) modules. The Ring 0 equivalent of `ActiveProcessLinks` — rootkits unlink their `_KLDR_DATA_TABLE_ENTRY` node to vanish from AV/EDR driver enumeration. Detected via `modscan` vs `modules` discrepancy in Volatility. | N/A (Memory Forensics: `modules`/`modscan`) | `8.1.25_PsLoadedModuleList_and_Kernel_Module_DKOM_Mechanics.md` |
 
 ## 4. Service Orchestration & Inter-Process Communication
 
@@ -53,8 +56,8 @@
 
 | Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
 | :--- | :--- | :--- | :--- |
-| **ETW** | Event Tracing for Windows; the core high-performance telemetry backbone capturing pre-execution data. | **Various ETW Providers** | `8.1.04_ETW_Architecture_and_Telemetry_Orchestration.md.md` |
-| **ETW-TI** | Threat Intelligence Provider; supplies advanced EDRs with restricted telemetry on process injection. | **Sysmon ID 8** (CreateRemoteThread) | `8.1.04_ETW_Architecture_and_Telemetry_Orchestration.md.md` |
+| **ETW** | Event Tracing for Windows; the core high-performance telemetry backbone capturing pre-execution data. | **Various ETW Providers** | `8.1.04_ETW_Architecture_and_Telemetry_Orchestration.md` |
+| **ETW-TI** | Threat Intelligence Provider; supplies advanced EDRs with restricted telemetry on process injection. | **Sysmon ID 8** (CreateRemoteThread) | `8.1.04_ETW_Architecture_and_Telemetry_Orchestration.md` |
 | **Authenticode** | Digital signatures providing Integrity and Origin validation, but not context safety. | **CodeIntegrity 3004 / 3089**, **Sysmon ID 7** | `8.1.03_Authenticode_Certificate_Chain_Verification.md` |
 | **Time-stamping** | Counter-signatures ensuring a signature remains valid even after the original certificate expires. | **Sysmon ID 7** (BYOVD Analysis) | `8.1.03_Authenticode_Certificate_Chain_Verification.md` |
 | **Memory Probing** | Kernel safety checks (`ProbeForRead`/`Write`) ensuring applications don't tamper with Kernel Space. | N/A (Blue Screen / Crash Dump) | `8.1.08_Kernel_Guardrails_and_Verification_Logic.md` |
