@@ -47,6 +47,7 @@ DHCP,Asset_ID,bootp.option.type == 12,N/A,Hostname Extraction: Identify the mach
 DHCP,Asset_ID,bootp.option.type == 55,N/A,"OS Fingerprinting: Analyze ""Parameter Request List"" to infer OS type (Windows requests distinct params vs Linux)."
 NBNS,Asset_ID,nbns,udp port 137,NetBIOS Name: Identify Windows Hostnames and Workgroups on local subnet.
 SMB,Asset_ID,smb2.session_setup.request.type,N/A,Windows Build ID: SMB Session Setup often reveals the exact Native OS and Kernel Build version.
+SMB,Hunting,smb2.cmd == 3 or smb2.cmd == 5 or smb2.cmd == 8 or smb2.cmd == 9 or smb2.cmd == 14,N/A,SMB2 Activity Timeline: Tree Connect + Create + Read + Write + Query Directory. Combine with eth.addr host pair filter to reconstruct full attacker filesystem activity.
 TLS,Hunting,"tls.handshake.extensions_server_name contains ""KEYWORD""",N/A,SNI Hunt: Search the intended domain name in cleartext even if traffic is encrypted.
 TLS,Hunting,tls.handshake.ciphersuite == 0x0035,N/A,Weak Encryption: Detect usage of weak ciphers often used by legacy malware or C2.
 TLS,Intel,"tls.x509.Subject contains ""KEYWORD""",N/A,Cert Analysis: Hunt for suspicious Certificate Subject names (e.g. self-signed fake company names).
@@ -57,3 +58,5 @@ NTLM,Auth,"ntlmssp.auth.username == ""KEYWORD""",N/A,NTLM Hunt: Search for speci
 Kerberos,Auth,"kerberos.CNameString == ""KEYWORD""",N/A,Kerberos Hunt: Search for specific client ticket requests.
 802.11,Attack,wlan.fc.type == 0) and (wlan.fc.type_subtype == 12) and (wlan.fixed.reason_code == 7 or and (wlan.fixed.reason_code == 6),N/A,Deauthentication Attack
 802.11,Hunting,(wlan.fc.type == 0) and (wlan.fc.type_subtype == 11),N/A,Auth Failure Hunting
+LLMNR+NBNS,Attack,(udp.port == 5355 and ip.dst != 224.0.0.252) or udp.port == 137,udp port 5355 or udp port 137,Poisoning Response: Unicast LLMNR reply or NBNS. High-confidence Responder indicator.
+Global,IPv6 Awareness,eth.addr == MAC1 && eth.addr == MAC2,N/A,Host Pair (MAC Layer): Layer 2 filter covering both IPv4 and IPv6. Always prefer over ip.addr for same-subnet analysis.
