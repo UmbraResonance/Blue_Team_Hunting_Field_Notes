@@ -41,3 +41,5 @@ tags:
     - attack.t1620
     - reflective_dll_injection
     - cobalt_strike
+custom:
+  origin: 02_Detection_Rules/2.1_user_case/Cobalt Strike Reflective DLL Injection Heuristic.md
