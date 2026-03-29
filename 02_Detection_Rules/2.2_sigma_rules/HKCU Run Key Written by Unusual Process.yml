@@ -1,0 +1,38 @@
+title: Suspicious Process Writing HKCU Run Persistence Key
+id: DC370C9C-A1E0-4F3F-937C-16F00E7A9175
+status: experimental
+description: |
+  Detects processes writing to HKCU Run persistence keys where the writing
+  process does not originate from a standard software installation path.
+  Unlike HKLM, HKCU Run keys require no administrative privileges, making
+  them a common persistence mechanism for user-context malware. Detection
+  targets the writing process identity rather than key name or value data
+  content, as both are trivially varied by adversaries — any process outside
+  standard installation paths (Program Files, Windows, System32) writing to
+  Run keys warrants investigation regardless of the specific key name or
+  payload path used.
+author: Juana Fan
+date: 2026/03/29
+level: medium
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains: '\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
+    Details|contains:
+      - '\AppData\'
+      - '\Temp\'
+  filter_legit:
+    Image|startswith:
+      - 'C:\Program Files\'
+      - 'C:\Program Files (x86)\'
+      - 'C:\Windows\System32\'
+  condition: selection and not filter_legit
+falsepositives:
+  - User-installed software in AppData — review and whitelist
+tags:
+  - attack.persistence
+  - attack.t1547.001
+custom:
+    origin: 10_Case_Studies/Emotet_LNK_2022/Emotet_LNK_Purple_Team_CaseStudy_v1.1.pdf
