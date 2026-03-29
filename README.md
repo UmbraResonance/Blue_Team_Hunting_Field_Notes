@@ -9,7 +9,7 @@
 
 This repository is **not a textbook**; it is my **personal combat notebook**.
 
-It serves as a centralized, living collection of tradecraft and detection strategies that I have researched, tested, and curated for my own use as a Security Analyst. The content here reflects my personal methodology in dissecting TTPs and translating them into actionable defense mechanisms.
+It serves as a centralized, living collection of tradecraft and detection strategies that I have researched, tested, and curated for my own use as a Security Analyst. The content here reflects my personal methodology in dissecting TTPs and translating them into actionable defense mechanisms. 
 
 The goal is to bridge the gap between abstract threat intelligence and the specific, often messy reality of log analysis in the field.
 
@@ -22,8 +22,8 @@ I built this repository to solve specific challenges I encounter in daily operat
 2.  **Detection-as-Code:** Moving from manual hunting queries to automated detection rules to prevent recurrence.
 3.  **Strict SOPs:** Standardized templates to ensure findings are recorded with legal and forensic precision (Chain of Custody).
 4.  **Engineering-First Approach:** Detections are not just "queries"; they follow a strict Detection Development Lifecycle (DDLC) to ensure quality, vendor-neutrality, and verifiable results.
-5. **First-Principles Thinking:** Operational commands (01, 06) are backed by deep OS internals knowledge (08). We don't just run queries; we understand how the kernel generates the artifacts (e.g., Access Tokens, SACLs).
-6. **Force Multiplication:** Codifying manual tradecraft and research (01-08) into automated, reusable modules (09) to ensure defense operates at machine speed.
+5.  **First-Principles Thinking:** Operational commands (01, 06) are backed by deep OS internals knowledge (08). We don't just run queries; we understand how the kernel generates the artifacts (e.g., Access Tokens, SACLs).
+6.  **Force Multiplication:** Codifying manual tradecraft and research (01-08) into automated, reusable modules (09) to ensure defense operates at machine speed.
 
 ---
 
@@ -32,7 +32,7 @@ I built this repository to solve specific challenges I encounter in daily operat
 | Directory | Purpose | Key Use Case |
 | :--- | :--- | :--- |
 | **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log Strategy & Reference** | "Eyes-on-glass" hunting. Event ID prioritization (P0-P2), Process Genealogy, and Artifact paths. |
-| **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic \(Sigma/YARA\)** | Heuristic rules driven by the [DDLC Framework](./02_Detection_Rules/!DDLC_Workflow.md). |
+| **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic (Sigma/YARA)** | Heuristic rules driven by the [DDLC Framework](./02_Detection_Rules/!DDLC_Workflow.md). |
 | **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | SOPs for specific incident types (e.g., Phishing). |
 | **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)**| **Reverse Engineering Guides** | Reverse engineering checklists and lab command references. |
 | **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** WIP| **Adversary Knowledge Base** | Adversary profiles (APTs) and Diamond Model strategies. |
@@ -40,6 +40,7 @@ I built this repository to solve specific challenges I encounter in daily operat
 | **[`07_Reporting`](./07_Reporting_Templates/)** | **Documentation & Evidence** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
 | **[`08_Underlying_Principles`](./08_Underlying_Principles/)** | **OS Internals & Theory** | **The "Why".** Deep dives into Windows Internals (Tokens, SACLs) to support logic construction. |
 | **[`09_Automation_Vault`](./09_Automation_Vault/)** | **Security Automation Hub** | **Scaling Defense.** Modular scripts for Identity, DFIR, and Detection-as-Code pipelines. |
+| **[`10_Case_Studies`](./10_Case_Studies/)** | **Real-World Campaigns & Purple Teaming** | In-depth teardowns of specific threats (e.g., Emotet) to bridge offensive mechanics with defensive detection. |
 
 ---
 
@@ -67,17 +68,29 @@ How to utilize this repository during a live incident:
 
 ### Continuous Improvement (The Loop):
 * **Gap Analysis:** If a detection was missed, verify existing logic in `01_Hunting`.
-* **Deep Dive:** Consult 08_Underlying_Principles to understand the theoretical mechanism before writing new rules.
-* **Engineering:** Codify verified hunting and response logic into **09_Automation_Vault** to automate repetitive tasks and ensure systemic prevention.
+* **Deep Dive:** Consult `08_Underlying_Principles` to understand the theoretical mechanism before writing new rules.
+* **Engineering:** Codify verified hunting and response logic into `09_Automation_Vault` to automate repetitive tasks and ensure systemic prevention.
+* **Pressure Testing:** Use the teardowns and simulations in `10_Case_Studies` to continuously validate and refine the entire arsenal against real-world Purple Team scenarios.
 
 ---
 
-## 🛑 Standard Operation Procedure (SOP)
+## 🛑 Standard Operating Procedures (SOPs)
 
-1.  **Write it Down:** If it's not in the *Timeline Tracker*, it didn't happen.
-2.  **UTC is King:** All logs must be converted to UTC for correlation.
-3.  **Hash Everything:** Never extract a file without calculating its SHA256 immediately.
-4.  **Pivot:** Don't stop at the alert. Use the *CTI Workbench* to find the infrastructure behind the attack.
+Recognizing that reactive incident response and proactive security engineering require different operational mindsets, this repository strictly adheres to a dual-track SOP structure.
+
+### Track A: Incident Response & DFIR (Reactive)
+*Core Objective: Maintain Chain of Custody, ensure rapid containment, and preserve forensic integrity during live incidents.*
+1.  **Write it Down:** If it is not documented in the *Timeline Tracker*, it did not happen.
+2.  **UTC is King:** All extracted logs and timeline entries must be strictly converted to UTC for accurate correlation.
+3.  **Hash Everything:** Never extract or handle a file from a compromised host without calculating and logging its SHA256 immediately.
+4.  **Pivot Relentlessly:** An alert is merely a starting point. Use the *CTI Workbench* to pivot from localized artifacts to the adversary's broader infrastructure.
+
+### Track B: Purple Teaming & Detection Engineering (Proactive)
+*Core Objective: Deepen TTP understanding, validate telemetry generation, and expand detection coverage through safe emulation.*
+1.  **Execution Context Over Hashes:** File hashes are brittle; behaviors are not. Prioritize documenting exact payload generation commands, CLI arguments, and obfuscation routines over static file hashes.
+2.  **ATT&CK Mapping:** Every emulated adversary action must be explicitly linked to a MITRE ATT&CK sub-technique to measure and visualize defensive coverage.
+3.  **Telemetry Validation:** The goal is not simply to "execute the exploit," but to scientifically verify if the underlying OS telemetry (e.g., Sysmon, ETW, EID 4104) successfully captured the targeted behavior.
+4.  **Close the Loop:** Every emulation exercise must result in either the validation of an existing detection rule or the creation of a new Sigma/YARA draft routed into the DDLC pipeline.
 
 ---
 
@@ -88,5 +101,4 @@ How to utilize this repository during a live incident:
 
 ---
 
-*Maintained by Juana | Cyber Security Analyst*
-*Last Updated: March 2026*
+*Maintained by Juana | Cyber Security Analyst* *Last Updated: March 2026*
