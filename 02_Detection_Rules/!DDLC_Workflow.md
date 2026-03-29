@@ -5,8 +5,17 @@ This flowchart defines the standard operating procedure for developing new detec
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": true, "curve": "linear", "padding": 15}}}%%
 flowchart LR
-    %% Phase 1: Input and Strategy
-    subgraph P1 ["Phase 1: Input & Strategy<br/>(CTI / IR Analyst)"]
+    %% Path A: Lab/Emulation Input
+    subgraph PA ["Path A: Lab & Emulation<br/>(Purple Team / Malware Analyst)"]
+        direction TB
+        X[Case Study:<br/>Emulation & Malware Analysis] --> Y[Artefact Analysis:<br/>Observed Telemetry & IOCs]
+        Y --> Z{Fidelity<br/>Assessment}
+        Z -- "Surrogate payload:<br/>Phase 2 pending" --> Z1[Rule Draft:<br/>Staged in 10_Case_Studies]
+        Z -- "Real sample<br/>validated" --> Z2[Rule Draft:<br/>Ready for Validation]
+    end
+
+    %% Path B: CTI/IR Input
+    subgraph P1 ["Path B: Input & Strategy<br/>(CTI / IR Analyst)"]
         direction TB
         A[CTI: Threat Intel &<br/>TTP Extraction] --> C{Requirement<br/>Assessment}
         B[IR: Incident Review<br/>& Post-Mortem] --> C
@@ -31,19 +40,29 @@ flowchart LR
     subgraph P4 ["Phase 4: Validation & Governance<br/>(Senior / Team Lead / DE)"]
         direction TB
         H --> I[Atomic Red Team:<br/>Attack Simulation]
+        Z2 --> I
         I -- Passed --> J[Production Rule<br/>Deployment]
         J --> L[Playbook Creation:<br/>Investigation Steps - Senior]
         L --> M[KPI & Risk Score Definition:<br/>MTTR & Metrics - Lead]
         M --> K[Continuous SOC<br/>Monitoring]
         K -- Feedback --> D
+        K -- Feedback --> X
     end
 
     %% Global Connections
+    PA --> P4
     P1 --> P2
     P2 --> P3
     P3 --> P4
 
-    %% Styling
+    %% Styling - Path A
+    style X fill:#fce4ec,stroke:#880e4f
+    style Y fill:#fce4ec,stroke:#880e4f
+    style Z fill:#fce4ec,stroke:#880e4f
+    style Z1 fill:#ffccbc,stroke:#bf360c
+    style Z2 fill:#fce4ec,stroke:#880e4f
+
+    %% Styling - Path B
     style A fill:#e1f5fe,stroke:#01579b
     style B fill:#e1f5fe,stroke:#01579b
     style D fill:#fff3e0,stroke:#e65100
