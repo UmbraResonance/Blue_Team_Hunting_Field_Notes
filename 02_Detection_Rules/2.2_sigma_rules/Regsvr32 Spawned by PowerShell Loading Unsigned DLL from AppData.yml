@@ -1,0 +1,34 @@
+title: Regsvr32 Spawned by PowerShell with DLL from User-Writable Path
+id: 5D31CDCB-A8E2-4B14-8DED-6A4732A32B36
+status: experimental
+description:
+  Detects regsvr32.exe spawned by powershell.exe loading a DLL from a user-writable
+  path. In the observed emulation two regsvr32 processes fired within 65ms from the
+  same PowerShell parent (one bare call, one with /s flag) — both are covered by
+  this rule. CommandLine may use Windows 8.3 short names (e.g. ADMINI~1 for
+  Administrator) depending on path length — the rule uses broad path segment matching
+  rather than full path to remain robust to short-name variation.
+author: Juana Fan
+date: 2026/03/29
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ParentImage|endswith: '\powershell.exe'
+    Image|endswith: '\regsvr32.exe'
+    CommandLine|contains:
+      - '\AppData\'
+      - '\Users\'
+  filter_legit:
+    CommandLine|re: '(?i)regsvr32\.exe.*\s(C:\\Windows\\|C:\\Program Files\\)'
+  condition: selection and not filter_legit
+falsepositives:
+  - Legitimate software using regsvr32 via PowerShell wrapper — rare
+  - Tune filter_legit with additional known-good DLL paths
+tags:
+  - attack.defense_evasion
+  - attack.t1218.010
+custom:
+    origin: 10_Case_Studies/Emotet_LNK_2022/Emotet_LNK_Purple_Team_CaseStudy_v1.1.pdf
