@@ -40,7 +40,7 @@ I built this repository to solve specific challenges I encounter in daily operat
 | **[`07_Reporting`](./07_Reporting_Templates/)** | **Documentation & Evidence** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
 | **[`08_Underlying_Principles`](./08_Underlying_Principles/)** | **OS Internals & Theory** | **The "Why".** Deep dives into Windows Internals (Tokens, SACLs) to support logic construction. |
 | **[`09_Automation_Vault`](./09_Automation_Vault/)** | **Security Automation Hub** | **Scaling Defense.** Modular scripts for Identity, DFIR, and Detection-as-Code pipelines. |
-| **[`10_Case_Studies`](./10_Case_Studies/)** | **Real-World Campaigns & Purple Teaming** | In-depth teardowns of specific threats (e.g., Emotet) to bridge offensive mechanics with defensive detection. |
+| **[`10_Case_Studies`](./10_Case_Studies/)** | **End-to-End Investigations** | End-to-end investigation teardowns spanning purple teaming, DFIR, and malware analysis — bridging offensive mechanics with defensive detection. |
 
 ---
 
