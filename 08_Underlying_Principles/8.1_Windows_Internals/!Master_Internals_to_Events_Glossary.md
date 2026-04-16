@@ -19,8 +19,8 @@
 | :--- | :--- | :--- | :--- |
 | **CLSID** | Class ID; a unique GUID identifying a specific COM functional component. | **4657** (Registry Value Change) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
 | **AppID** | Application ID; defines the security policy and Token context for a COM object. | **4657** (Registry Value Change) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
-| **RPCSS** | The COM System Scheduler; the "Foreman" that consults the Registry and activates COM objects. | **4688** (Process Creation: `dllhost.exe`) | `8.1.11_RPCSS_and_COM_Surrogate_Orchestration.md` |
-| **Surrogate** | `dllhost.exe`; a process hosting COM objects outside the client process to provide isolated execution. | **4688** (Parent: `svchost.exe`) | `8.1.11_RPCSS_and_COM_Surrogate_Orchestration.md` |
+| **RPCSS** | The COM System Scheduler; the "Foreman" that consults the Registry and activates COM objects. | **4688** (Process Creation: `dllhost.exe`) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
+| **Surrogate** | `dllhost.exe`; a process hosting COM objects outside the client process to provide isolated execution. | **4688** (Parent: `svchost.exe`) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
 | **Transaction Logs** | `.LOG` files recording pending registry modifications before they are flushed to the primary hive, essential for catching ephemeral persistence. | N/A (Registry Analysis) | `8.1.22_Registry_Transactions_and_Dirty_Hives.md` |
 | **Dirty Hive** | A registry state where the primary disk hive lacks the latest uncommitted changes stored in active memory or transaction logs. | N/A (Registry Analysis) | `8.1.22_Registry_Transactions_and_Dirty_Hives.md` |
 
