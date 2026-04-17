@@ -12,6 +12,7 @@
 | **Privileges** | Specific administrative rights granted to an account (e.g., `SeDebugPrivilege`). | **4672** (Special privileges assigned) | `8.1.02_Access_Tokens.md` |
 | **Handle** | An audited abstract "Voucher" issued by the Kernel allowing a process to access a resource. | **4663** (Object Access) | `8.1.07_Security_Context_Tokens_Handles_and_Pointers.md` |
 | **Pointer** | A direct physical/virtual memory address, bypassing kernel audit during use. | N/A (Memory Forensics) | `8.1.07_Security_Context_Tokens_Handles_and_Pointers.md` |
+| **Logon Session (LUID)** | A kernel-level authentication context keyed by a locally unique identifier, linking 4624 to all subsequent process/object access events. | **4624**, **4688** (SubjectLogonId), **4663** | `8.1.11_LSA_Logon_Session_Chain_and_Logon_Types.md` |
 
 ## 2. Component Object Model (COM) & Registry
 
