@@ -1,30 +1,43 @@
 # The Underlying Principles: Reading Paths
 
-This document is not a reference manual; it is a storybook. It is designed for weekly review to stitch the fragmented knowledge of incident response and detection engineering back into a cohesive narrative. 
+This document is a narrative textbook designed for weekly review. It stitches fragmented knowledge into a cohesive story of system internals and adversarial movement. 
 
 When reviewing, read the prose first to understand the "why" and the "flow". Only follow the `→ Deep dive` links if you find your memory failing on the technical specifics. Do not fall into the rabbit hole of clicking every link.
 
+**Structure Note:** - **Path 1** covers the complete lifecycle of Windows Internals.
+- **Path 2** covers the progression of an Active Directory compromise.
+- **Cross-Protocol Integration:** After finishing both, read [8.4.01 - Cross-Protocol Authentication Visibility Matrix](8.4_Authentication_and_Identity/8.4.01_Cross_Protocol_Authentication_Visibility_Matrix.md) to see how these worlds collide.
+- **Isolated Foundations:** Document [8.3.01 - 802.11 Fundamentals](8.3_Network_Foundataion/8.3.01_802.11_Fundamentals.md) is kept separate as it serves as a standalone hardware foundation not directly tied to the OS narrative.
+
 ---
 
-## Path 1: Windows Internals — The Life of a Process
+## Path 1: Windows Internals — The Orchestrated Lifecycle
 
-**Protagonist:** A process trying to run, survive, and interact within the operating system.
+**Protagonist:** A process trying to run, survive, and interact within the complex ecosystem of the Windows OS.
 
 ### Act I: Conception and Validation
-Every execution begins with a dormant file resting on the disk. Before a process can draw its first breath in memory, the operating system must locate its physical footprint and consult tracking mechanisms designed to optimize its launch. Simultaneously, the system evaluates the application's compatibility needs and meticulously dissects its internal structure. Windows does not trust blindly; it scrutinizes cryptographic signatures to ensure the code hasn't been tampered with before granting it entry into the execution environment.
+Every execution begins as a dormant PE file on the disk. Before it can draw its first breath in memory, the OS must locate its physical footprint and consult tracking mechanisms like Prefetch to optimize its launch. The system evaluates compatibility needs and dissects the PE structure to understand the code it is about to host. Windows does not trust blindly; it scrutinizes cryptographic signatures through Authenticode to ensure the protagonist is exactly who they claim to be before granting entry.
 → Deep dive: [NTFS Internals](8.1_Windows_Internals/8.1.18_NTFS_and_File_System_Internals.md), [Prefetch & SysMain](8.1_Windows_Internals/8.1.20_Windows_Prefetch_and_SysMain_Service.md), [Application Compatibility](8.1_Windows_Internals/8.1.19_Application_Compatibility_Subsystem.md), [PE Architecture](8.1_Windows_Internals/8.1.15_Portable_Executable_Architecture.md), [Authenticode Verification](8.1_Windows_Internals/8.1.03_Authenticode_Certificate_Chain_Verification.md)
 
-### Act II: The Breath of Life
-Once validated, the operating system carves out an isolated, blank canvas for the protagonist. This is the virtual address space, a private reality where the process believes it owns everything. To ground this illusion in reality, the kernel constructs fundamental tracking structures to manage the process's lifecycle, while user-mode environment blocks are created so the process knows who it is. Crucially, the process is handed its access token—a cryptographic badge of identity that dictates exactly what it is permitted to see and touch in the world.
-→ Deep dive: [Virtual Address Space](8.1_Windows_Internals/8.1.16_Virtual_Address_Space_Architecture.md), [EPROCESS Mechanics](8.1_Windows_Internals/8.1.17_EPROCESS_and_DKOM_Mechanics.md), [PEB and TEB](8.1_Windows_Internals/8.1.09_PEB_and_TEB_Structures.md), [Access Tokens](8.1_Windows_Internals/8.1.02_Access_Tokens.md)
+### Act II: The Inheritance of Identity
+Before the process exists, its identity is already predetermined. It is born into a "Logon Session" created by the Local Security Authority (LSA) at the moment a user or service authenticated to the system. This session is the protagonist’s lineage, providing the source for its primary Access Token. The process does not create its own rights; it inherits them from this session chain, which dictates its relationship to the interactive world or the network.
+→ Deep dive: [LSA Logon Session Chain](8.1_Windows_Internals/8.1.11_LSA_Logon_Session_Chain_and_Logon_Types.md), [Access Tokens](8.1_Windows_Internals/8.1.02_Access_Tokens.md)
 
-### Act III: Interaction and Survival
-A process cannot exist in absolute isolation; it must reach out. It dynamically loads external libraries to gain capabilities and requests handles to interact with files, registry keys, and other objects. Every single time our protagonist reaches for an object, the kernel's security reference monitor intercepts the request, comparing the process's token against the object's security descriptor. If the process attempts complex operations, like establishing communication through COM or named pipes, or if malicious actors attempt to forcefully map unauthorized code into its memory, the call stack becomes the ultimate ledger of its execution history. 
-→ Deep dive: [DLL Loading](8.1_Windows_Internals/8.1.12_Rundll32.exe_Execution_Logic_and_Dynamic_Link_Library_(DLL)_Loading.md), [COM Architecture](8.1_Windows_Internals/8.1.06_COM_Architecture_and_Registry_Ledger.md), [Tokens, Handles, and Pointers](8.1_Windows_Internals/8.1.07_Security_Context_Tokens_Handles_and_Pointers.md), [Object Security (SACL)](8.1_Windows_Internals/8.1.01_Object_Security_SACL.md), [The Call Stack](8.1_Windows_Internals/8.1.05_The_User_Mode_Ecosystem_and_Call_Stack.md), [Manual Mapping](8.1_Windows_Internals/8.1.10_Manual_Mapping_and_IAT_Reconstruction.md)
+### Act III: The Breath of Life
+Validated and identified, the process is granted its virtual reality: the Virtual Address Space (VAS). It believes it owns a private, continuous memory world, but the kernel is the ultimate landlord, swapping physical RAM pages to the Pagefile on disk when resources are tight. To manage this lifecycle, the kernel constructs fundamental EPROCESS structures—which can be surreptitiously manipulated via DKOM—while user-mode blocks (PEB/TEB) are carved out to store the process's internal configuration.
+→ Deep dive: [Virtual Address Space](8.1_Windows_Internals/8.1.16_Virtual_Address_Space_Architecture.md), [Pagefile & Swapfile](8.1_Windows_Internals/8.1.24_Pagefile_and_Swapfile_Mechanics.md), [EPROCESS & DKOM](8.1_Windows_Internals/8.1.17_EPROCESS_and_DKOM_Mechanics.md), [PEB and TEB](8.1_Windows_Internals/8.1.09_PEB_and_TEB_Structures.md)
 
-### Act IV: The Watchers in the Dark
-The journey of the process is never truly private. From the moment it is created to its termination, kernel guardrails enforce strict boundaries, ensuring it doesn't corrupt the core of the system. More importantly, every significant action, memory allocation, and network connection generates a ripple. The operating system's telemetry orchestration engine captures these ripples, broadcasting the protagonist's every move to defensive sensors waiting in the dark. 
-→ Deep dive: [Kernel Guardrails](8.1_Windows_Internals/8.1.08_Kernel_Guardrails_and_Verification_Logic.md), [ETW Architecture](8.1_Windows_Internals/8.1.04_ETW_Architecture_and_Telemetry_Orchestration.md)
+### Act IV: Interaction and Flow
+The protagonist must now reach out to survive. It loads DLL libraries to gain functionality and requests handles to interact with files or registry hives. Every time it reaches for an object, the Security Reference Monitor checks its token against the object's SACL. If it communicates with other processes, it uses Named Pipes; if it attempts to execute unauthorized code, it may try to reconstruct its own Import Address Table or perform manual mapping to evade the standard loaders.
+→ Deep dive: [DLL Loading](8.1_Windows_Internals/8.1.12_Rundll32.exe_Execution_Logic_and_Dynamic_Link_Library_(DLL)_Loading.md), [Tokens & Handles](8.1_Windows_Internals/8.1.07_Security_Context_Tokens_Handles_and_Pointers.md), [Object Security (SACL)](8.1_Windows_Internals/8.1.01_Object_Security_SACL.md), [Named Pipes](8.1_Windows_Internals/8.1.13_Windows_Service_Control_Manager_Named_Pipes_Communication.md), [Manual Mapping](8.1_Windows_Internals/8.1.10_Manual_Mapping_and_IAT_Reconstruction.md), [The Call Stack](8.1_Windows_Internals/8.1.05_The_User_Mode_Ecosystem_and_Call_Stack.md)
+
+### Act V: The Orchestrated Existence
+Not all processes are started by a user’s click; many are orchestrated by system-level foremen. The Service Control Manager (SCM) acts as the foreman for background services, managing their state and security contexts through a dedicated architecture. Meanwhile, the WMI repository serves as an autonomous engine for system management and automation. This orchestrated layer allows processes to be triggered remotely or persistently, often through complex COM interactions and registry transactions that leave subtle logs even when successful.
+→ Deep dive: [SCM Architecture](8.1_Windows_Internals/8.1.14_SCM_Architecture_and_Service_Security_Deep_Dive.md), [WMI/CIM Repository](8.1_Windows_Internals/8.1.23_WMI_and_CIM_Repository_Architecture.md), [COM Architecture](8.1_Windows_Internals/8.1.06_COM_Architecture_and_Registry_Ledger.md), [Registry Transactions](8.1_Windows_Internals/8.1.22_Registry_Transactions_and_Dirty_Hives.md)
+
+### Act VI: The Watchers and the Archives
+The journey of the process is recorded in two dimensions: real-time ripples and permanent echoes. ETW captures the protagonist's live actions, while kernel guardrails ensure it doesn't cross into the forbidden kernel space, where drivers are monitored via structures like PsLoadedModuleList. Simultaneously, the OS archives the protagonist's history in the disk's "archives"—Shell artifacts like LNK files, JumpLists, and ShellBags track where the process has been and what the user has touched, forming a forensic ledger that persists long after the process has died.
+→ Deep dive: [ETW Architecture](8.1_Windows_Internals/8.1.04_ETW_Architecture_and_Telemetry_Orchestration.md), [Kernel Guardrails](8.1_Windows_Internals/8.1.08_Kernel_Guardrails_and_Verification_Logic.md), [Kernel Module DKOM](8.1_Windows_Internals/8.1.25_PsLoadedModuleList_and Kernel_Module_DKOM_Mechanics.md), [Shell Namespace & User Tracking](8.1_Windows_Internals/8.1.21_Windows_Shell_Namespace_and_User_Tracking.md)
 
 ---
 
