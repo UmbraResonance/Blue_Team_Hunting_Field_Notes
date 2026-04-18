@@ -32,16 +32,16 @@ I built this repository to solve specific challenges I encounter in daily operat
 
 | Directory | Purpose | Key Use Case |
 | :--- | :--- | :--- |
-| **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log Strategy & Reference** | "Eyes-on-glass" hunting. Event ID prioritization (P0-P2), Process Genealogy, and Artifact paths. |
-| **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic (Sigma/YARA)** | Heuristic rules driven by the [DDLC Framework](./02_Detection_Rules/!DDLC_Workflow.md). |
-| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | SOPs for specific incident types (e.g., Phishing). |
+| **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log & Artifact Reference** | "Eyes-on-glass" hunting reference. Covers MITRE-mapped hunting matrix, Event ID deep-dive with cross-protocol failure code tables, process genealogy, network protocol filters (Wireshark/BPF), forensic artifact map, and memory analysis commands. |
+| **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic (Sigma rules + YARA notes)** | Heuristic rules driven by the [DDLC Framework](./02_Detection_Rules/!DDLC_Workflow.md). Includes use-case design (2.1) and engineering-focused implementation notes. |
+| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | Standardized response workflows for phishing, network traffic anomalies, and lateral movement. |
 | **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)**| **Malware Analysis Playbooks** | TTP-to-API behavior reference, static triage (PE/x64 asm/Windows API), and dynamic debugging workflows. |
 | **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** WIP| **Adversary Knowledge Base** | Adversary profiles (APTs) and Diamond Model strategies. |
-| **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **Command Syntax Library** | Pure command reference (KAPE, Volatility, Zimmerman Tools). |
-| **[`07_Reporting`](./07_Reporting_Templates/)** | **Documentation & Evidence** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
+| **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **Query & Command Vault** | Operator-grade command reference. Covers DFIR tooling (KAPE, EZ Tools), SIEM query languages (Splunk SPL, Elastic KQL/EQL/ES|QL), NIDS rule development (Snort 3/Suricata), and agentic DFIR (Velociraptor VQL). |
+| **[`07_Reporting`](./07_Reporting_Templates/)** | **Documentation & Evidence** | **Operational Core.** Timeline trackers, evidence logs (chain of custody), malware analysis reports, CTI attribution workbench (Diamond Model), and final incident reports. |
 | **[`08_Underlying_Principles`](./08_Underlying_Principles/)** | **OS Internals & Security Architecture** | Windows Internals (Ring 0/3, DKOM, NTFS), Active Directory (Kerberos, AD CS, Delegation), and Cross-Protocol Authentication. Includes a narrative review path stitching the fragments into a coherent adversary lifecycle story. |
-| **[`09_Automation_Vault`](./09_Automation_Vault/)** | **Security Automation Hub** | **Scaling Defense.** Modular scripts for Identity, DFIR, and Detection-as-Code pipelines. |
-| **[`10_Case_Studies`](./10_Case_Studies/)** | **End-to-End Investigations** | End-to-end investigation teardowns spanning purple teaming, DFIR, and malware analysis — bridging offensive mechanics with defensive detection. |
+| **[`09_Automation_Vault`](./09_Automation_Vault/)** | **Security Automation Hub** | **Scaling Defense.** Modular scripts for Identity & AD auditing, DFIR triage, and CTI collection pipelines. |
+| **[`10_Case_Studies`](./10_Case_Studies/)** | **End-to-End Investigations** | End-to-End investigation teardowns spanning purple teaming, DFIR, and malware analysis — bridging offensive mechanics with defensive detection. |
 
 ---
 
@@ -52,15 +52,15 @@ How to utilize this repository during a live incident:
 ### Phase 1: Triage & Detection
 * **Trigger:** Alert received or anomaly detected.
 * **Action:** Consult **`01_Hunting`** to interpret raw logs (Windows/Network).
-* **Documentation:** Open **`7.1_Timeline_Tracker.csv`** immediately to start logging the narrative (Red & Blue actions).
+* **Documentation:** Open **`7.1_Timeline_Tracker.csv`** immediately to start logging the narrative.
 
 ### Phase 2: Investigation & Analysis
-* **Action:** Use **`06_Tool_Vault`** to execute precise forensic collection.
-* **Action:** Log all extracted files into **`7.2_Evidence_Artifact_Log.csv`** (Chain of Custody).
+* **Action:** Use **`06_Tool_Vault`** to execute precise forensic collection and SIEM querying (SPL/KQL).
+* **Action:** Log all extracted artifacts into **`7.2_Evidence_Artifact_Log.csv`** (Chain of Custody).
 * **Deep Dive:** If malware is recovered, analyze using **`04_Malware`** and produce **`7.3_Malware_Analysis_Report.md`**.
 
 ### Phase 3: Containment & Intelligence
-* **Action:** Execute containment steps from **`03_Playbooks`** and log them in the Timeline.
+* **Action:** Execute containment steps from **`03_Playbooks`**.
 * **Attribution:** Pivot from artifacts to attribution using **`7.4_DFIR_to_CTI_Workbench.md`** (Diamond Model).
 
 ### Phase 4: Deliverable
@@ -71,8 +71,8 @@ How to utilize this repository during a live incident:
 * **Gap Analysis:** If a detection was missed, verify existing logic in `01_Hunting`.
 * **Deep Dive:** Consult `08_Underlying_Principles` to understand the theoretical mechanism before writing new rules.
 * **Structured Review:** Utilize the `_00_Review_Path.md` to conduct systematic study sessions, connecting isolated artifacts and techniques into a cohesive narrative of the adversary lifecycle.
-* **Engineering:** Codify verified hunting and response logic into `09_Automation_Vault` to automate repetitive tasks and ensure systemic prevention.
-* **Pressure Testing:** Use the teardowns and simulations in `10_Case_Studies` to continuously validate and refine the entire arsenal against real-world Purple Team scenarios.
+* **Engineering:** Codify verified hunting and response logic into `09_Automation_Vault` to automate repetitive tasks (e.g., AD auditing, CTI collection).
+* **Pressure Testing:** Use the teardowns and simulations in `10_Case_Studies` to continuously validate and refine the entire arsenal.
 
 ---
 
