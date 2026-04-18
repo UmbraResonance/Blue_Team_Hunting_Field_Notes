@@ -22,8 +22,9 @@ I built this repository to solve specific challenges I encounter in daily operat
 2.  **Detection-as-Code:** Moving from manual hunting queries to automated detection rules to prevent recurrence.
 3.  **Strict SOPs:** Standardized templates to ensure findings are recorded with legal and forensic precision (Chain of Custody).
 4.  **Engineering-First Approach:** Detections are not just "queries"; they follow a strict Detection Development Lifecycle (DDLC) to ensure quality, vendor-neutrality, and verifiable results.
-5.  **First-Principles Thinking:** Operational commands (01, 06) are backed by deep OS internals knowledge (08). We don't just run queries; we understand how the kernel generates the artifacts (e.g., Access Tokens, SACLs).
-6.  **Force Multiplication:** Codifying manual tradecraft and research (01-08) into automated, reusable modules (09) to ensure defense operates at machine speed.
+5.  **First-Principles Thinking:** Operational commands (01, 06) are backed by deep OS internals knowledge (08). We don't just run queries; we understand how the OS generates the artifacts (e.g., how EPROCESS/VAD structures expose DKOM evasion, or why Kerberos delegation misconfigurations enable RBCD attacks).
+6.  **Layered Cross-Reference:** Malware TTPs (04) are explicitly anchored to OS internals (08) — e.g., Process Hollowing references VAD tree mechanics, and COM Hijacking references RPCSS architecture.
+7.  **Force Multiplication:** Codifying manual tradecraft and research (01-08) into automated, reusable modules (09) to ensure defense operates at machine speed.
 
 ---
 
@@ -34,11 +35,11 @@ I built this repository to solve specific challenges I encounter in daily operat
 | **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log Strategy & Reference** | "Eyes-on-glass" hunting. Event ID prioritization (P0-P2), Process Genealogy, and Artifact paths. |
 | **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic (Sigma/YARA)** | Heuristic rules driven by the [DDLC Framework](./02_Detection_Rules/!DDLC_Workflow.md). |
 | **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | SOPs for specific incident types (e.g., Phishing). |
-| **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)**| **Reverse Engineering Guides** | Reverse engineering checklists and lab command references. |
+| **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)**| **Malware Analysis Playbooks** | TTP-to-API behavior reference, static triage (PE/x64 asm/Windows API), and dynamic debugging workflows. |
 | **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** WIP| **Adversary Knowledge Base** | Adversary profiles (APTs) and Diamond Model strategies. |
 | **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **Command Syntax Library** | Pure command reference (KAPE, Volatility, Zimmerman Tools). |
 | **[`07_Reporting`](./07_Reporting_Templates/)** | **Documentation & Evidence** | **Operational Core.** Timeline trackers, Evidence logs, and Final Reports. |
-| **[`08_Underlying_Principles`](./08_Underlying_Principles/)** | **OS Internals & Theory** | **The "Why".** Deep dives into Windows Internals (Tokens, SACLs) to support logic construction. |
+| **[`08_Underlying_Principles`](./08_Underlying_Principles/)** | **OS Internals & Security Architecture** | Windows Internals (Ring 0/3, DKOM, NTFS), Active Directory (Kerberos, AD CS, Delegation), and Cross-Protocol Authentication. Includes a narrative review path stitching the fragments into a coherent adversary lifecycle story. |
 | **[`09_Automation_Vault`](./09_Automation_Vault/)** | **Security Automation Hub** | **Scaling Defense.** Modular scripts for Identity, DFIR, and Detection-as-Code pipelines. |
 | **[`10_Case_Studies`](./10_Case_Studies/)** | **End-to-End Investigations** | End-to-end investigation teardowns spanning purple teaming, DFIR, and malware analysis — bridging offensive mechanics with defensive detection. |
 
@@ -69,6 +70,7 @@ How to utilize this repository during a live incident:
 ### Continuous Improvement (The Loop):
 * **Gap Analysis:** If a detection was missed, verify existing logic in `01_Hunting`.
 * **Deep Dive:** Consult `08_Underlying_Principles` to understand the theoretical mechanism before writing new rules.
+* **Structured Review:** Utilize the `_00_Review_Path.md` to conduct systematic study sessions, connecting isolated artifacts and techniques into a cohesive narrative of the adversary lifecycle.
 * **Engineering:** Codify verified hunting and response logic into `09_Automation_Vault` to automate repetitive tasks and ensure systemic prevention.
 * **Pressure Testing:** Use the teardowns and simulations in `10_Case_Studies` to continuously validate and refine the entire arsenal against real-world Purple Team scenarios.
 
@@ -101,4 +103,4 @@ Recognizing that reactive incident response and proactive security engineering r
 
 ---
 
-*Maintained by Juana | Cyber Security Analyst* *Last Updated: March 2026*
+*Maintained by Juana | Cyber Security Analyst* *Last Updated: April 2026*
