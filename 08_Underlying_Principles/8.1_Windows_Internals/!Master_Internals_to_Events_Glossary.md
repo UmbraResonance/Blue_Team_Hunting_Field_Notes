@@ -1,9 +1,9 @@
 # !Master_Internals_to_Events_Glossary
-
+ 
 > **Purpose**: This glossary bridges the gap between abstract Windows Internal concepts and concrete forensic artifacts. It serves as a rapid-mapping guide for Detection Engineering and Threat Hunting by linking core principles to the documentation in this repository.
-
+ 
 ## 1. Core Identity & Access Control
-
+ 
 | Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
 | :--- | :--- | :--- | :--- |
 | **Access Token** | A kernel object describing the security context (SIDs and Privileges) of a user or process. | **4624** (Logon), **4672** (Privileged Logon) | `8.1.02_Access_Tokens.md` |
@@ -13,20 +13,25 @@
 | **Handle** | An audited abstract "Voucher" issued by the Kernel allowing a process to access a resource. | **4663** (Object Access) | `8.1.07_Security_Context_Tokens_Handles_and_Pointers.md` |
 | **Pointer** | A direct physical/virtual memory address, bypassing kernel audit during use. | N/A (Memory Forensics) | `8.1.07_Security_Context_Tokens_Handles_and_Pointers.md` |
 | **Logon Session (LUID)** | A kernel-level authentication context keyed by a locally unique identifier, linking 4624 to all subsequent process/object access events. | **4624**, **4688** (SubjectLogonId), **4663** | `8.1.11_LSA_Logon_Session_Chain_and_Logon_Types.md` |
-
+ 
 ## 2. Component Object Model (COM) & Registry
-
+ 
 | Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
 | :--- | :--- | :--- | :--- |
-| **CLSID** | Class ID; a unique GUID identifying a specific COM functional component. | **4657** (Registry Value Change) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
+| **CLSID** | Class ID; a unique GUID identifying a specific COM functional component. | **4657** (Registry Value Change) | `8.1.06_COM_Architecture_and_Registry_Ledger.md`; `8.1.30_COM_Automation_and_IDispatch_Interface.md` |
 | **AppID** | Application ID; defines the security policy and Token context for a COM object. | **4657** (Registry Value Change) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
+| **ProgID** | Programmatic Identifier; human-readable string (e.g., `Scripting.FileSystemObject`) that maps to a CLSID. The script-facing entry point to COM Automation. HKCU-first resolution enables user-level hijacking. | **Sysmon EID 13 / Security 4657** (HKCU\Software\Classes\<ProgID> tampering) | `8.1.30_COM_Automation_and_IDispatch_Interface.md` (§4) |
+| **IDispatch** | The COM interface implementing late binding. All Automation-compatible objects support it. `GetIDsOfNames` + `Invoke` are the two methods every script interpreter uses to execute methods on COM objects. | N/A (architectural invariant; no direct event) | `8.1.30_COM_Automation_and_IDispatch_Interface.md` (§3) |
+| **VARIANT** | A tagged union type used by COM Automation to carry typed values across the interpreter/object boundary. The existence of `VT_DISPATCH` (object reference) vs value types is the architectural reason VBScript requires the `Set` keyword. | N/A (runtime type system) | `8.1.30_COM_Automation_and_IDispatch_Interface.md` (§5) |
+| **COM Hijacking (HKCU ProgID/CLSID redirect)** | Writing `HKCU\Software\Classes\<ProgID>\CLSID` or `HKCU\Software\Classes\CLSID\{GUID}\InprocServer32` to redirect a legitimate COM activation to an attacker-controlled DLL. No admin privileges required. | **Sysmon EID 13**, **Security EID 4657** | `8.1.06_COM_Architecture_and_Registry_Ledger.md` (§2); `8.1.30_COM_Automation_and_IDispatch_Interface.md` (§4.3) |
+| **Script-Host DLL Load Fingerprinting** | Because each COM object has exactly one `InprocServer32` DLL, specific DLL loads into script host processes (`wscript.exe`, `cscript.exe`, `mshta.exe`) are equivalent to specific ProgID usage — regardless of how the script obfuscates ProgID strings. | **Sysmon EID 7** (e.g., `msado15.dll` = ADODB.Stream; `scrrun.dll` = FSO) | `8.1.30_COM_Automation_and_IDispatch_Interface.md` (§7) |
 | **RPCSS** | The COM System Scheduler; the "Foreman" that consults the Registry and activates COM objects. | **4688** (Process Creation: `dllhost.exe`) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
 | **Surrogate** | `dllhost.exe`; a process hosting COM objects outside the client process to provide isolated execution. | **4688** (Parent: `svchost.exe`) | `8.1.06_COM_Architecture_and_Registry_Ledger.md` |
 | **Transaction Logs** | `.LOG` files recording pending registry modifications before they are flushed to the primary hive, essential for catching ephemeral persistence. | N/A (Registry Analysis) | `8.1.22_Registry_Transactions_and_Dirty_Hives.md` |
 | **Dirty Hive** | A registry state where the primary disk hive lacks the latest uncommitted changes stored in active memory or transaction logs. | N/A (Registry Analysis) | `8.1.22_Registry_Transactions_and_Dirty_Hives.md` |
-
+ 
 ## 3. Execution & Memory Management
-
+ 
 | Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
 | :--- | :--- | :--- | :--- |
 | **Syscall** | The assembly instruction used to cross from User Mode (Ring 3) to Kernel Mode (Ring 0). | **Sysmon ID 25** (Process Tampering) | `8.1.05_The_User_Mode_Ecosystem_and_Call_Stack.md`; `8.1.29_EDR_Hooking_and_Unhooking_Mechanics.md` (direct/indirect syscall evasion) |
@@ -51,9 +56,9 @@
 | **PPID Spoofing** | Falsification of `_EPROCESS.InheritedFromUniqueProcessId` via `UpdateProcThreadAttribute` + `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS`; deceives Sysmon Event 1 / Security 4688 but NOT the kernel `Microsoft-Windows-Kernel-Process` ETW provider. | **Sysmon ID 1** (deceived), **Kernel-Process ETW** (truthful) | `8.1.17_EPROCESS_and_DKOM_Mechanics.md` (§9) |
 | **API Hashing** | Runtime Win32 API resolution technique: walks the PEB `Ldr` list to locate a module, parses its Export Directory, and matches export-name hashes against precomputed constants. Evades static analysis by eliminating API name strings from the binary. | N/A (Static Analysis) | `8.1.10_Manual_Mapping_and_IAT_Reconstruction.md` (§4) |
 | **Hell's Gate / Halo's Gate** | API-hashing-adjacent technique that harvests the `mov eax, <imm32>` syscall number directly from `ntdll.dll` stubs, enabling direct syscall execution without invoking the hooked function prologue. | ETW-TI thread stack walks | `8.1.10_Manual_Mapping_and_IAT_Reconstruction.md` (§4.3), `8.1.29_EDR_Hooking_and_Unhooking_Mechanics.md` (§3.1) |
-
+ 
 ## 4. Service Orchestration & Inter-Process Communication
-
+ 
 | Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
 | :--- | :--- | :--- | :--- |
 | **SCM** | Service Control Manager (`services.exe`); the RPC server orchestrating the lifecycle and security context of services. | **7045**, **Sysmon ID 13** | `8.1.14_SCM_Architecture_and_Service_Security_Deep_Dive.md` |
@@ -62,9 +67,9 @@
 | **WMI** | Windows Management Instrumentation; the core OS management engine heavily abused for remote lateral movement and stealthy execution. | **Sysmon IDs 19, 20, 21**, **5861** | `8.1.23_WMI_and_CIM_Repository_Architecture.md` |
 | **CIM Repository** | The central database (`OBJECTS.DATA`) storing WMI class definitions and persistent payloads. | N/A (Fileless Persistence Analysis) | `8.1.23_WMI_and_CIM_Repository_Architecture.md` |
 | **WMI Eventing** | The autonomous execution mechanism consisting of Event Filters, Consumers, and Bindings. | **5861** (WMI Activity) | `8.1.23_WMI_and_CIM_Repository_Architecture.md` |
-
+ 
 ## 5. Key Security Boundaries, Trust & Telemetry
-
+ 
 | Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
 | :--- | :--- | :--- | :--- |
 | **ETW** | Event Tracing for Windows; the core high-performance telemetry backbone capturing pre-execution data. | **Various ETW Providers** | `8.1.04_ETW_Architecture_and_Telemetry_Orchestration.md` |
@@ -74,13 +79,14 @@
 | **Memory Probing** | Kernel safety checks (`ProbeForRead`/`Write`) ensuring applications don't tamper with Kernel Space. | N/A (Blue Screen / Crash Dump) | `8.1.08_Kernel_Guardrails_and_Verification_Logic.md` |
 | **AMSI (Antimalware Scan Interface)** | OS-level interface (`amsi.dll`) that lets scripting hosts submit deobfuscated buffers to a registered antimalware provider for inspection before execution. The primary detection surface for PowerShell, WSH, .NET reflection, and Office macros. | `Microsoft-Windows-Antimalware-Scan-Interface` ETW provider; **Defender EID 1116/1117** | `8.1.28_AMSI_and_Script_Scanning_Architecture.md` |
 | **AMSI Provider** | COM in-process server (e.g., `MpOav.dll` for Defender) registered under `HKLM\SOFTWARE\Microsoft\AMSI\Providers`; receives buffers from `amsi.dll` and forwards to the scanning engine. | **Sysmon ID 13 / Security 4657** (registry tampering); **Defender EID 5007** (provider state changes) | `8.1.28_AMSI_and_Script_Scanning_Architecture.md` |
+| **AMSI-for-CLR** | Since .NET Framework 4.8, the CLR submits `Assembly.Load(byte[])` byte arrays to AMSI before verification. Closes the "fileless .NET" gap; bypassed via the same patterns as script-host AMSI. | Same providers as script-host AMSI; additional `Microsoft-Windows-DotNETRuntime` correlation | `8.1.31_CLR_and_In_Memory_Assembly_Loading.md` (§4) |
 | **EDR User-Mode Hook** | Inline patch placed by an EDR's injected DLL on `ntdll.dll` / `kernelbase.dll` function prologues, redirecting API calls through EDR inspection logic before the syscall executes. | ETW-TI (hook detection of `.text` modification on `ntdll.dll`) | `8.1.29_EDR_Hooking_and_Unhooking_Mechanics.md` |
 | **Direct Syscall** | Evasion technique: malware emits its own `mov r10, rcx; mov eax, <syscall#>; syscall` sequence, bypassing the hooked `ntdll.dll` function prologue entirely. | ETW-TI thread stack walks (syscall returning to unbacked memory) | `8.1.29_EDR_Hooking_and_Unhooking_Mechanics.md` (§3.1) |
 | **Indirect Syscall** | Refinement of direct syscall: jumps to the `syscall; ret` gadget *inside* `ntdll.dll` to keep the return address within a legitimately-backed module, defeating simple stack-walk heuristics. | Correlation of behavior vs. absence of hook telemetry | `8.1.29_EDR_Hooking_and_Unhooking_Mechanics.md` (§3.2) |
 | **Unhooking** | Restoration of hooked function prologues by reading the original bytes from a fresh mapping of `ntdll.dll` (via `NtOpenFile`/`NtReadFile` or `NtMapViewOfSection`) and overwriting the in-memory hooks. | ETW-TI `ProtectVirtualMemory` events targeting `ntdll.dll` range | `8.1.29_EDR_Hooking_and_Unhooking_Mechanics.md` (§3.3) |
-
+ 
 ## 6. File System, Forensics & Shell Artifacts
-
+ 
 | Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
 | :--- | :--- | :--- | :--- |
 | **MFT** | Master File Table; the core NTFS structure managing file metadata, timestamps, and resident data limits. | N/A (Disk Forensics) | `8.1.18_NTFS_and_File_System_Internals.md` |
@@ -92,3 +98,25 @@
 | **LNK Files** | OS-generated shortcut files capturing detailed access history, including MAC times, volume serial numbers, and network share routing. | N/A (Shell Artifacts) | `8.1.21_Windows_Shell_Namespace_and_User_Tracking.md` |
 | **JumpLists** | Artifacts tracking "Recent Items" accessed via specific applications, proving direct user interaction with target files. | N/A (Shell Artifacts) | `8.1.21_Windows_Shell_Namespace_and_User_Tracking.md` |
 | **ShellBags** | Registry entries recording UI preferences that prove directory traversal, persisting even if the target folder is subsequently deleted. | N/A (Registry Analysis) | `8.1.21_Windows_Shell_Namespace_and_User_Tracking.md` |
+ 
+## 7. Script-Layer Architecture
+ 
+> **Note**: This category covers interpreted code — scripts, macros, and in-memory .NET assemblies. Unlike compiled binaries (Category 3), script-layer artifacts do not follow the PE loader lifecycle. They execute inside host processes through architecturally-distinct mechanisms (AMSI, CLR, IDispatch) that demand their own detection vocabulary.
+ 
+| Internals Term | Plain English Definition | Primary Event IDs | Related Internal Docs |
+| :--- | :--- | :--- | :--- |
+| **Interpreter Pipeline** | The universal four-stage path every script executes through: source text → tokenizer → parser → AST → interpreter. Obfuscation lives on source text; interpreter operates on AST. The gap between them is where deobfuscation is architecturally guaranteed. | N/A (architectural model) | `8.1.34_Interpreter_Architecture_and_Deobfuscation_Primitives.md` |
+| **Sink (Dynamic-Evaluation Sink)** | Any language construct that submits a string for parse-and-execute: `eval` (JS), `IEX` / `Invoke-Expression` (PowerShell), `Execute` / `ExecuteGlobal` (VBScript), `exec` (Python). The architectural interception point for deobfuscation because the string must be plaintext source at this point. | **PowerShell EID 4104** captures content reaching the sink | `8.1.34_Interpreter_Architecture_and_Deobfuscation_Primitives.md` (§3) |
+| **ScriptBlock (PowerShell)** | The unit of PowerShell code that AMSI scans and Event 4104 logs. Produced by the PowerShell parser for every piece of code regardless of source. Content is post-deobfuscation by architectural necessity. | **PowerShell EID 4104** | `8.1.28_AMSI_and_Script_Scanning_Architecture.md` (§3.1) |
+| **Language Mode (PowerShell)** | Process-level runtime restriction selecting which language features a session can use. `FullLanguage` (default) allows everything; `ConstrainedLanguage` (auto-enabled when WDAC/AppLocker enforces) blocks `Add-Type`, reflection, COM creation, and other offensive primitives. | **PowerShell EID 4103/4104** (attempts logged regardless); **Security EID 4688** (`-Version 2` invocations for CLM bypass) | `8.1.33_PowerShell_Language_Modes_and_Policy_Enforcement.md` |
+| **Constrained Language Mode (CLM)** | The PowerShell language mode activated automatically under WDAC or AppLocker enforcement. Blocks most offensive PowerShell capabilities structurally. Bypass paths: PowerShell v2 downgrade, runspace escape, signed-script trust abuse, COM-layer escape. | **CodeIntegrity EID 3077/8028** (WDAC blocks); **PowerShell EID 4100** (execution errors from CLM-blocked operations) | `8.1.33_PowerShell_Language_Modes_and_Policy_Enforcement.md` (§§3-4) |
+| **CLR (Common Language Runtime)** | User-mode virtual machine (`clr.dll` for .NET Framework, `coreclr.dll` for .NET 5+) that loads, JIT-compiles, and executes .NET assemblies. Any process hosting the CLR can execute arbitrary .NET code — native-process CLR hosting is a high-fidelity injection signal. | **Sysmon EID 7** (`clr.dll` / `coreclr.dll` into unusual processes) | `8.1.31_CLR_and_In_Memory_Assembly_Loading.md` |
+| **Assembly.Load(byte[])** | The .NET API that loads an entire PE-formatted assembly from a byte array in memory — no file on disk, no Sysmon EID 7 for the payload, no Authenticode check. The architectural foundation of "fileless" .NET execution (Cobalt Strike `execute-assembly`, PowerShell reflective loading). Since .NET 4.8, AMSI-integrated. | **`Microsoft-Windows-DotNETRuntime` ETW** (AssemblyLoader keyword `0x00000004`); AMSI scan events | `8.1.31_CLR_and_In_Memory_Assembly_Loading.md` (§2.2) |
+| **CFBF (Compound File Binary Format)** | Microsoft's "filesystem-in-a-file" format underlying legacy Office documents (`.doc`, `.xls`, `.ppt`). A hierarchical FAT-like structure with named "streams" and "storages." Magic bytes `D0 CF 11 E0 A1 B1 1A E1`. Modern `.docm` / `.xlsm` files embed a CFBF (`vbaProject.bin`) inside a ZIP. | N/A (Document Analysis: `oledump.py`) | `8.1.32_OLE_Compound_File_and_VBA_Project_Structure.md` |
+| **PerformanceCache / CompressedSource** | The two parts of a VBA module stream. `PerformanceCache` is the precompiled tokens the VBA runtime actually executes; `CompressedSource` is the original source, compressed with the `[MS-OVBA]` algorithm, used by the VBA IDE for display and recompilation. The two can disagree. | N/A (Document Analysis: `pcodedmp.py` comparison) | `8.1.32_OLE_Compound_File_and_VBA_Project_Structure.md` (§3) |
+| **VBA Stomping** | Evasion technique exploiting the `PerformanceCache` / `CompressedSource` split — attacker replaces `CompressedSource` with benign content while leaving malicious `PerformanceCache` intact. Analyst tools read `CompressedSource`; the runtime executes `PerformanceCache`. Version-fragile (requires matching Office build). | N/A (Document Analysis) | `8.1.32_OLE_Compound_File_and_VBA_Project_Structure.md` (§5) |
+| **AutoExec Subs (VBA)** | VBA procedure names recognized as automatic execution triggers: `AutoOpen` / `Document_Open` (Word), `Auto_Open` / `Workbook_Open` (Excel), `AutoExec`, `AutoNew`, `AutoClose`. Presence indicates the macro is designed to run without user interaction. | N/A (Document Static Analysis) | `8.1.32_OLE_Compound_File_and_VBA_Project_Structure.md` (§6) |
+| **Script Telemetry Surface** | The collection of content-inspection and process-creation telemetry available for a given scripting language. Uneven across languages: PowerShell (richest — AMSI + 4104), VBS/JS (AMSI since Win10 1709), VBA (AMSI only in Office 365), Batch/CMD (**no AMSI**). | Language-specific (see referenced doc for full matrix) | `8.1.35_Script_Telemetry_Surface_Comparison.md` |
+| **Batch/CMD Architectural Blind Spot** | `cmd.exe` has no AMSI integration — not an oversight, but an architectural reality inherited from DOS. Detection for batch-based threats cannot rely on content inspection; must use command-line logging (Security EID 4688 / Sysmon EID 1) and downstream behavioral signals. | **Security EID 4688**, **Sysmon EID 1** (command-line arguments) | `8.1.35_Script_Telemetry_Surface_Comparison.md` (§4) |
+| **PowerShell `-EncodedCommand` Encoding** | PowerShell's `-EncodedCommand` flag expects **UTF-16LE** bytes, Base64-encoded. Decoding as UTF-8 produces garbled output with every-other-character nulls — the single most common encoding mistake in script analysis. | Decoded content appears in **PowerShell EID 4104** in plaintext regardless of `-EncodedCommand` usage | `8.1.36_Text_Encoding_and_Character_Set_Foundations.md` (§5) |
+| **Data Normalization (Three-Layer Encoding)** | The systematic reversal of encoding layers from outside in: transport (JSON escape, HTML entity, URL encoding) → payload (Base64, hex, gzip) → character (UTF-8 vs UTF-16LE). Applying layers in wrong order produces plausible-but-wrong output. | N/A (analysis workflow) | `8.1.36_Text_Encoding_and_Character_Set_Foundations.md` |
