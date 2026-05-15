@@ -34,7 +34,7 @@ I built this repository to solve specific challenges I encounter in daily operat
 | :--- | :--- | :--- |
 | **[`01_Hunting_Cheatsheets`](./01_Hunting_Cheatsheets/)** | **Log & Artifact Reference** | "Eyes-on-glass" hunting reference. Covers MITRE-mapped hunting matrix, Event ID deep-dive with cross-protocol failure code tables, process genealogy, network protocol filters (Wireshark/BPF), forensic artifact map, and memory analysis commands. |
 | **[`02_Detection_Rules`](./02_Detection_Rules/)** | **Detection Logic (Sigma rules + YARA notes)** | Heuristic rules driven by the [DDLC Framework](./02_Detection_Rules/!DDLC_Workflow.md). Includes use-case design (2.1) and engineering-focused implementation notes. |
-| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | Standardized response workflows for phishing, network traffic anomalies, and lateral movement. |
+| **[`03_DFIR_Playbooks`](./03_DFIR_Playbooks/)** | **Incident Response SOPs** | Standardized response workflows organized into two tracks: **`3.1_Playbooks`** (phishing analysis, network forensics) and **`3.2_Investigation_Workflows`** (memory forensics — phase-driven Volatility 3 + MemProcFS workflow). |
 | **[`04_Malware_Analysis`](./04_Malware_Analysis_Cheatsheets/)**| **Malware Analysis Playbooks** | TTP-to-API behavior reference, static triage (PE/x64 asm/Windows API), and dynamic debugging workflows. |
 | **[`05_Threat_Intel`](./05_Threat_Intelligence_Library/)** WIP| **Adversary Knowledge Base** | Adversary profiles (APTs) and Diamond Model strategies. |
 | **[`06_Tool_Vault`](./06_Tool_Command_Vault/)** | **Query & Command Vault** | Operator-grade command reference. Covers DFIR tooling (KAPE, EZ Tools), cross-platform live response (Windows/Linux), SIEM query languages (Splunk SPL, Elastic Elastic KQL/EQL/ESQL), network analysis & detection (tshark/Zeek, Snort 3/Suricata), and agentic DFIR (Velociraptor VQL). |
@@ -103,4 +103,4 @@ Recognizing that reactive incident response and proactive security engineering r
 
 ---
 
-*Maintained by Juana | Cyber Security Analyst* *Last Updated: April 2026*
+*Maintained by Juana | Cyber Security Analyst* *Last Updated: May 2026*
