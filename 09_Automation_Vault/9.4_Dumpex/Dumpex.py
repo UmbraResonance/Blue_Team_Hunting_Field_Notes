@@ -14,6 +14,7 @@ HUNT (TTP detection):
   python dumpex.py dump.DMP --hunt injection
   python dumpex.py dump.DMP --hunt hollowing
   python dumpex.py dump.DMP --hunt stomping
+  python dumpex.py dump.DMP --hunt pipe
   python dumpex.py dump.DMP --hunt all [--verbose]
 
 REPORT (alert triage):
@@ -466,6 +467,8 @@ def cmd_report(mf: MinidumpFile, report_tid: str = None, report_addr: str = None
     """\n    Alert triage card: given a TID, address, or string from an EDR alert / TI feed,\n    correlate thread, memory, and string evidence into a structured verdict.\n    Verdict uses MECE dimensions — each dimension scored at most once.\n\n    --report-string: search all memory for the string, then run triage on each\n                    matching region. Useful when the anchor is a C2 IP, domain,\n                    or known malware string from threat intelligence.\n    """
     # ── String search mode: find regions, then triage each one ───────
     if report_string and not report_addr:
+        modules_list = get_modules(mf)
+
         print(f"\n{BOLD('Searching memory for:')} {CYAN(repr(report_string))}")
         print("─" * 55)
         hits = _search_string_in_memory(mf, report_string)
@@ -473,20 +476,41 @@ def cmd_report(mf: MinidumpFile, report_tid: str = None, report_addr: str = None
             print(RED(f"  [!] String not found in any committed memory region."))
             print(DIM("      Try --strings with a broader address range to verify."))
             return
-        print(GREEN(f"  [+] Found in {len(hits)} region(s):"))
+
+        # Split into actionable (MEM_PRIVATE / no module) vs noise (MEM_IMAGE in known module)
+        private_hits = []
+        image_hits   = []
         for r, off, enc in hits:
+            mtype  = prot_str(r.Type)
+            mod    = addr_to_module(r.BaseAddress, modules_list)
+            if "MEM_IMAGE" in mtype and mod:
+                image_hits.append((r, off, enc, mod))
+            else:
+                private_hits.append((r, off, enc))
+
+        # Summary line
+        print(GREEN(f"  [+] Found in {len(hits)} region(s):"))
+        for r, off, enc in private_hits:
             abs_addr = r.BaseAddress + off
             p        = prot_str(r.Protect)
             t        = prot_str(r.Type)
             rwx_tag  = RED(" ◄ RWX") if any(s in p for s in SUSPICIOUS_PROTS) else ""
-            print(f"    0x{r.BaseAddress:016x}  hit@0x{abs_addr:x}  [{enc}]  {p}  {t}{rwx_tag}")
+            print(f"    {RED('►')} 0x{r.BaseAddress:016x}  hit@0x{abs_addr:x}  [{enc}]  {p}  {t}{rwx_tag}")
+        if image_hits:
+            mod_names = sorted({os.path.basename(m.name) for _, _, _, m in image_hits})
+            print(DIM(f"    [·] {len(image_hits)} hit(s) in known MEM_IMAGE modules "
+                      f"({', '.join(mod_names)}) — skipped (expected content)"))
         print()
 
-        # Run full triage on each hit region
-        for i, (r, off, enc) in enumerate(hits, 1):
-            if len(hits) > 1:
+        if not private_hits:
+            print(DIM("  [·] All hits are in known system modules — no actionable regions to triage."))
+            return
+
+        # Run full triage only on private/unregistered hits
+        for i, (r, off, enc) in enumerate(private_hits, 1):
+            if len(private_hits) > 1:
                 print(BOLD(f"{'═'*55}"))
-                print(BOLD(f"  Triaging hit {i}/{len(hits)} — region 0x{r.BaseAddress:x}"))
+                print(BOLD(f"  Triaging hit {i}/{len(private_hits)} — region 0x{r.BaseAddress:x}"))
                 print(BOLD(f"{'═'*55}"))
             cmd_report(mf,
                       report_tid=report_tid,
@@ -1118,9 +1142,271 @@ def _hunt_stomping(mf: MinidumpFile, verbose: bool = False) -> dict:
     return findings
 
 
+
+def _hunt_pipe(mf: MinidumpFile, verbose: bool = False) -> dict:
+    """
+    Detect Named Pipe C2 / Lateral Movement channels.
+
+    Strategy: structural, not signature-based.
+      Check 1 — Pipe names in MEM_PRIVATE memory
+                 (system DLLs legitimately reference pipes; private memory does not)
+      Check 2 — C2 artifacts near private pipe names
+                 (IP:port, HTTP URLs in same region = strong signal)
+      Check 3 — Known framework pipe naming patterns (bonus score only)
+      Check 4 — Unbacked thread executing in same region as pipe name
+    """
+    modules = get_modules(mf)
+    regions = get_memory_regions(mf)
+    infos   = get_thread_infos(mf)
+
+    # Pipe name patterns
+    # Match pipe names in both ASCII and UTF-16LE.
+    # UTF-16LE pattern built at runtime to avoid null bytes in source.
+    PIPE_PAT_ASCII = re.compile(
+        rb'(?:\\[?]{0,2}\\pipe\\|\\pipe\\|\\.\\pipe\\)',
+        re.IGNORECASE
+    )
+    _utf16_pipe = '\\pipe\\'.encode('utf-16-le')
+    PIPE_PAT_UTF16 = re.compile(re.escape(_utf16_pipe), re.IGNORECASE)
+    # Known C2 framework pipe name patterns with specific attribution.
+    # Each entry: (compiled_regex, framework, technique, reference)
+    KNOWN_FRAMEWORK_PIPES = [
+        (re.compile(r'postex_', re.I),
+         "Cobalt Strike", "Post-Exploitation (postex) pipe — default name for CS post-ex jobs",
+         "T1559.001"),
+        (re.compile(r'msagent_', re.I),
+         "Cobalt Strike", "SMB Beacon peer-to-peer pipe — default msagent pipe name",
+         "T1090.001"),
+        (re.compile(r'status_[0-9a-f]+', re.I),
+         "Cobalt Strike", "Beacon status pipe — used for internal Beacon comms",
+         "T1559.001"),
+        (re.compile(r'MSSE-[0-9a-f]+-server', re.I),
+         "Metasploit", "Meterpreter named pipe transport — default MSSE pipe",
+         "T1559.001"),
+        (re.compile(r'mojo\.\d+\.\d+', re.I),
+         "Chrome / Chromium IPC (possible abuse)", "Mojo IPC pipe — legitimate but abused by some loaders",
+         "T1559.001"),
+        (re.compile(r'DserNamePipe', re.I),
+         "Various", "PrintNightmare / Spooler exploit pipe name",
+         "T1068"),
+        (re.compile(r'583da750', re.I),
+         "Cobalt Strike", "Hardcoded CS pipe name fragment seen in older versions",
+         "T1559.001"),
+        (re.compile(r'psexesvc', re.I),
+         "PsExec / Impacket", "PSExec service pipe — used for lateral movement via SMB",
+         "T1021.002"),
+        (re.compile(r'paexec', re.I),
+         "PAExec", "PAExec lateral movement pipe",
+         "T1021.002"),
+        (re.compile(r'remcom', re.I),
+         "RemCom", "RemCom lateral movement tool pipe",
+         "T1021.002"),
+        (re.compile(r'svcctl', re.I),
+         "SCM / Lateral Movement", "Service Control Manager pipe — abused by SCM-based lateral movement",
+         "T1021.002"),
+    ]
+    # C2 context patterns for neighbourhood scan
+    C2_PAT = re.compile(
+        r'https?://|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{2,5})?'
+        r'|submit\.php|/ca$|/w2p',
+        re.IGNORECASE
+    )
+
+    findings = {
+        "private_pipes":   [],   # (region, offset, name)
+        "c2_context":      [],   # (region, pipe_name, c2_strings)
+        "framework_pipes": [],   # (region, pipe_name, pattern)
+        "unbacked_in_rgn": [],   # (thread_info, region)
+        "score": 0,
+    }
+
+    _print_hunt_header("Named Pipe C2 / Lateral Movement")
+
+    # ── Collect all pipe name occurrences ────────────────────────────
+    private_pipes = []   # (region, offset, decoded_name)
+    image_pipes   = []   # (region, mod_name, decoded_name)
+
+    for r in regions:
+        if prot_str(r.State) != "MEM_COMMIT":
+            continue
+        mtype = prot_str(r.Type)
+        mod   = addr_to_module(r.BaseAddress, modules)
+
+        try:
+            data = read_region(mf, r.BaseAddress, r.RegionSize)
+        except Exception:
+            continue
+
+        def _extract_pipe_name(data, m, is_utf16):
+            end = m.end()
+            if is_utf16:
+                # Read UTF-16LE chars until double-null or end
+                while end + 1 < len(data):
+                    ch = data[end]
+                    hi = data[end + 1]
+                    if hi == 0 and 32 <= ch < 127:
+                        end += 2
+                    else:
+                        break
+                raw = data[m.start():end]
+                try:
+                    return raw.decode("utf-16-le", errors="replace")
+                except Exception:
+                    return repr(raw)
+            else:
+                while end < len(data) and 32 <= data[end] < 127:
+                    end += 1
+                raw = data[m.start():end]
+                try:
+                    return raw.decode("ascii", errors="replace")
+                except Exception:
+                    return repr(raw)
+
+        for m in PIPE_PAT_ASCII.finditer(data):
+            name = _extract_pipe_name(data, m, is_utf16=False)
+            if "MEM_IMAGE" in mtype and mod:
+                image_pipes.append((r, os.path.basename(mod.name), name))
+            else:
+                private_pipes.append((r, m.start(), name))
+
+        for m in PIPE_PAT_UTF16.finditer(data):
+            name = _extract_pipe_name(data, m, is_utf16=True)
+            if "MEM_IMAGE" in mtype and mod:
+                image_pipes.append((r, os.path.basename(mod.name), name))
+            else:
+                private_pipes.append((r, m.start(), name))
+
+    # Deduplicate private pipes by (region_base, name)
+    seen_private = set()
+    deduped = []
+    for r, off, name in private_pipes:
+        key = (r.BaseAddress, name.strip())
+        if key not in seen_private:
+            seen_private.add(key)
+            deduped.append((r, off, name))
+    private_pipes = deduped
+
+    # ── Check 1: Pipe names in MEM_PRIVATE ───────────────────────────
+    if private_pipes:
+        detail = f"{len(private_pipes)} pipe name(s) in unregistered private memory"
+        if verbose:
+            for r, off, name in private_pipes:
+                p = prot_str(r.Protect)
+                rwx = RED(" [RWX]") if any(s in p for s in SUSPICIOUS_PROTS) else ""
+                detail += f"\n          0x{r.BaseAddress + off:x}  {name.strip()}{rwx}"
+        _print_check("Pipe names in MEM_PRIVATE (unregistered memory)",
+                     RED("SUSPICIOUS — pipe names should not appear in private unregistered memory"),
+                     detail)
+        findings["private_pipes"] = private_pipes
+        findings["score"] += 1
+    else:
+        _print_check("Pipe names in MEM_PRIVATE",
+                     GREEN("CLEAN — all pipe name references are in known system modules"))
+
+    if image_pipes and verbose:
+        mod_names = sorted({n for _, n, _ in image_pipes})
+        print(DIM(f"  [·] {len(image_pipes)} pipe reference(s) in known modules "
+                  f"({', '.join(mod_names)}) — expected, skipped\n"))
+
+    # ── Check 2: C2 artifacts near private pipe names ─────────────────
+    c2_hits = []
+    for r, off, pipe_name in private_pipes:
+        try:
+            data = read_region(mf, r.BaseAddress, r.RegionSize)
+        except Exception:
+            continue
+        # Scan strings in the whole region for C2 patterns
+        strings = _extract_strings_from_data(data, min_len=6)
+        c2_strings = [s for _, _, s in strings if C2_PAT.search(s)]
+        if c2_strings:
+            c2_hits.append((r, pipe_name.strip(), c2_strings))
+
+    if c2_hits:
+        detail = f"{len(c2_hits)} region(s) with pipe name + C2 artifacts"
+        if verbose:
+            for r, pipe_name, c2s in c2_hits:
+                detail += f"\n          Region 0x{r.BaseAddress:x}  pipe: {pipe_name}"
+                for s in c2s[:3]:
+                    detail += f"\n            C2: {s}"
+                if len(c2s) > 3:
+                    detail += f"\n            ... and {len(c2s)-3} more"
+        _print_check("C2 artifacts co-located with pipe name",
+                     RED("SUSPICIOUS — C2 IP/URL in same region as private pipe name"),
+                     detail)
+        findings["c2_context"] = c2_hits
+        findings["score"] += 1
+    else:
+        _print_check("C2 artifacts near pipe names",
+                     GREEN("CLEAN — no C2 patterns found near private pipe names"))
+
+    # ── Check 3: Known framework patterns with attribution ───────────
+    framework_hits = []  # (region, full_pipe_name, framework, technique, mitre_id)
+    for r, off, name in private_pipes:
+        clean = name.strip()
+        for pat, framework, technique, mitre in KNOWN_FRAMEWORK_PIPES:
+            if pat.search(clean):
+                framework_hits.append((r, clean, framework, technique, mitre))
+                break  # one attribution per pipe name
+
+    if framework_hits:
+        detail = f"{len(framework_hits)} match(es) — framework attribution:"
+        for r, pipe_name, framework, technique, mitre in framework_hits:
+            detail += f"\n          Pipe     : {pipe_name}"
+            detail += f"\n          Framework: {framework}"
+            detail += f"\n          Technique: {technique}"
+            detail += f"\n          MITRE    : {mitre}"
+        _print_check("Known C2 framework pipe naming pattern",
+                     RED(f"SUSPICIOUS — {framework_hits[0][2]} pipe pattern identified"),
+                     detail)
+        findings["framework_pipes"] = framework_hits
+        findings["score"] += 1
+    else:
+        _print_check("Known C2 framework pipe naming pattern",
+                     DIM("CLEAN — no known framework patterns (note: custom names evade this check)"))
+
+    # ── Check 4: Unbacked threads in same region as pipe name ─────────
+    pipe_regions = {r.BaseAddress for r, _, _ in private_pipes}
+    unbacked_in_pipe_rgn = []
+    for ti in infos:
+        sa = ti.StartAddress or 0
+        for r in regions:
+            if r.BaseAddress in pipe_regions:
+                if r.BaseAddress <= sa < r.BaseAddress + r.RegionSize:
+                    if not addr_to_module(sa, modules):
+                        unbacked_in_pipe_rgn.append((ti, r))
+
+    if unbacked_in_pipe_rgn:
+        detail = f"{len(unbacked_in_pipe_rgn)} unbacked thread(s) executing in pipe-name region"
+        if verbose:
+            for ti, r in unbacked_in_pipe_rgn:
+                detail += (f"\n          TID=0x{ti.ThreadId:x}  "
+                           f"StartAddr=0x{ti.StartAddress:x}  "
+                           f"Region=0x{r.BaseAddress:x}")
+        _print_check("Unbacked thread in same region as pipe name",
+                     RED("SUSPICIOUS — active execution at pipe name location"),
+                     detail)
+        findings["unbacked_in_rgn"] = unbacked_in_pipe_rgn
+        findings["score"] += 1
+    else:
+        _print_check("Unbacked threads in pipe-name region",
+                     GREEN("CLEAN — no unbacked threads in regions containing pipe names"))
+
+    # ── Verdict ───────────────────────────────────────────────────────
+    score = findings["score"]
+    verdict = (RED("HIGH CONFIDENCE C2 PIPE / LATERAL MOVEMENT") if score >= 3 else
+               YELLOW("LIKELY C2 PIPE")                           if score == 2 else
+               YELLOW("POSSIBLE C2 PIPE")                         if score == 1 else
+               GREEN("CLEAN — no named pipe C2 indicators"))
+    print(f"  {BOLD('[ VERDICT ]')}  {verdict}  ({score}/4 checks flagged)\n")
+
+    if not verbose and private_pipes:
+        print(DIM("  Use --verbose to expand pipe names, C2 strings, and thread details.\n"))
+
+    return findings
+
 def cmd_hunt(mf: MinidumpFile, ttp: str, verbose: bool = False):
     """Run TTP-specific detection playbooks."""
-    valid = {"injection", "hollowing", "stomping", "all"}
+    valid = {"injection", "hollowing", "stomping", "pipe", "all"}
     if ttp not in valid:
         print(RED(f"[!] Unknown TTP '{ttp}'. Choose from: {', '.join(sorted(valid))}"))
         sys.exit(1)
@@ -1128,6 +1414,7 @@ def cmd_hunt(mf: MinidumpFile, ttp: str, verbose: bool = False):
     run_injection = ttp in ("injection", "all")
     run_hollowing = ttp in ("hollowing", "all")
     run_stomping  = ttp in ("stomping",  "all")
+    run_pipe      = ttp in ("pipe",      "all")
 
     results = {}
 
@@ -1137,6 +1424,8 @@ def cmd_hunt(mf: MinidumpFile, ttp: str, verbose: bool = False):
         results["hollowing"] = _hunt_hollowing(mf, verbose=verbose)
     if run_stomping:
         results["stomping"]  = _hunt_stomping(mf,  verbose=verbose)
+    if run_pipe:
+        results["pipe"]      = _hunt_pipe(mf, verbose=verbose)
 
     # Summary card for --hunt all
     if ttp == "all":
@@ -1144,9 +1433,10 @@ def cmd_hunt(mf: MinidumpFile, ttp: str, verbose: bool = False):
         print(BOLD("  HUNT SUMMARY"))
         print(BOLD("══════════════════════════════════════════"))
         labels = {
-            "injection": ("Process Injection", results["injection"]["score"], 3),
-            "hollowing": ("Process Hollowing", results["hollowing"]["score"], 4),
-            "stomping":  ("Module Stomping",   results["stomping"]["score"],  2),
+            "injection": ("Process Injection",          results["injection"]["score"], 3),
+            "hollowing": ("Process Hollowing",          results["hollowing"]["score"], 4),
+            "stomping":  ("Module Stomping",            results["stomping"]["score"],  2),
+            "pipe":      ("Named Pipe C2 / Lat. Move.", results["pipe"]["score"],      4),
         }
         any_hit = False
         for key, (name, score, max_score) in labels.items():
@@ -1388,7 +1678,7 @@ def main():
     mode.add_argument("--sysinfo",      action="store_true", help="Show OS, host, process and CPU summary")
     mode.add_argument("--diff",         metavar="DUMP2",     help="Diff against a second .DMP file")
     mode.add_argument("--report",        action="store_true", help="Generate triage report anchored to a TID, address, or string")
-    mode.add_argument("--hunt",          metavar="TTP",       help="TTP detection: injection | hollowing | stomping | all")
+    mode.add_argument("--hunt",          metavar="TTP",       help="TTP detection: injection | hollowing | stomping | pipe | all")
 
     # Shared
     parser.add_argument("-s", "--size",      metavar="SIZE",   help="Region size in hex")
