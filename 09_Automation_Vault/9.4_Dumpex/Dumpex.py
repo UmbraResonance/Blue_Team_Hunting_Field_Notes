@@ -5,6 +5,7 @@ DFIR/CTF triage tool for Windows .DMP files.
 
 RECON:
   python dumpex.py dump.DMP --sysinfo
+  python dumpex.py dump.DMP --pid
   python dumpex.py dump.DMP --peb
   python dumpex.py dump.DMP --modules
   python dumpex.py dump.DMP --threads
@@ -141,27 +142,168 @@ def cmd_list(mf, filter_prot=None):
     print(f"\n{GREEN(f'[+] {count} region(s) shown.')}")
 
 
+def _pe_timestamp_to_str(ts: int) -> str:
+    """
+    Convert a PE TimeDateStamp (Unix epoch, 32-bit) to a UTC string.
+    Returns a dimmed note for zero / sentinel values.
+    """
+    import datetime
+    if not ts:
+        return DIM("(not set)")
+    if ts == 0xFFFFFFFF:
+        return DIM("(reproducible build — timestamp suppressed)")
+    try:
+        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        if dt.year < 1980 or dt.year > 2040:
+            return f"0x{ts:08x}  {YELLOW('(suspicious value)')}"
+        return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+    except (OSError, OverflowError, ValueError):
+        return f"0x{ts:08x}  {YELLOW('(out of range)')}"
+
+
+def _version_str(vi) -> str:
+    """
+    Format VS_FIXEDFILEINFO into 'major.minor.patch.build' strings.
+    Returns None if the block is absent or entirely zero.
+    """
+    if vi is None:
+        return None
+    try:
+        fv_ms = vi.dwFileVersionMS
+        fv_ls = vi.dwFileVersionLS
+        pv_ms = vi.dwProductVersionMS
+        pv_ls = vi.dwProductVersionLS
+        if fv_ms == 0 and fv_ls == 0 and pv_ms == 0 and pv_ls == 0:
+            return None
+        file_ver    = f"{fv_ms >> 16}.{fv_ms & 0xFFFF}.{fv_ls >> 16}.{fv_ls & 0xFFFF}"
+        product_ver = f"{pv_ms >> 16}.{pv_ms & 0xFFFF}.{pv_ls >> 16}.{pv_ls & 0xFFFF}"
+        if file_ver == product_ver:
+            return file_ver
+        return f"{file_ver}  (product: {product_ver})"
+    except Exception:
+        return None
+
+
 def cmd_modules(mf):
     mods = get_modules(mf)
-    print(f"\n{BOLD('Base'):<20} {BOLD('End'):<20} {BOLD('Size'):<12} {BOLD('Module')}")
-    print("─" * 80)
+
     for m in sorted(mods, key=lambda x: x.baseaddress):
-        print(f"0x{m.baseaddress:<18x} 0x{m.endaddress:<18x} 0x{m.size:<10x} {m.name}")
+        name     = m.name or "(unnamed)"
+        basename = os.path.basename(name)
+
+        ts_raw  = getattr(m, "timestamp", 0) or 0
+        ts_str  = _pe_timestamp_to_str(ts_raw)
+        ver_str = _version_str(getattr(m, "versioninfo", None))
+        checksum = getattr(m, "checksum", 0) or 0
+
+        # Anomaly flags
+        flags = []
+        if not m.name:
+            flags.append(RED("[NO NAME]"))
+        if ts_raw and ts_raw < 315532800:   # before 1980-01-01
+            flags.append(YELLOW("[OLD TIMESTAMP]"))
+        flag_str = "  " + " ".join(flags) if flags else ""
+
+        print(f"\n  {BOLD(basename)}{flag_str}")
+        print(f"  {'Full path':<18} {DIM(name)}")
+        print(f"  {'Base → End':<18} 0x{m.baseaddress:016x} → 0x{m.endaddress:016x}  (size 0x{m.size:x})")
+        print(f"  {'Compiled (UTC)':<18} {ts_str}")
+        if ver_str:
+            print(f"  {'File version':<18} {ver_str}")
+        if checksum:
+            print(f"  {'Checksum':<18} 0x{checksum:08x}")
+
     print(f"\n{GREEN(f'[+] {len(mods)} module(s).')}")
 
 
+def _filetime_to_str(ft: int) -> str:
+    """
+    Convert a Windows FILETIME (100-ns intervals since 1601-01-01) to a
+    human-readable UTC string.  Returns "(none)" for zero / unset values.
+    """
+    import datetime
+    if not ft:
+        return "(none)"
+    try:
+        # FILETIME epoch offset to Unix epoch in microseconds
+        EPOCH_DIFF_US = 11644473600 * 1_000_000
+        us = ft // 10 - EPOCH_DIFF_US
+        dt = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc) + datetime.timedelta(microseconds=us)
+        return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+    except Exception:
+        return f"0x{ft:x}"
+
+
+def _dumpflags_str(flags) -> str:
+    """Return a compact label for MINIDUMP_THREAD_INFO DumpFlags."""
+    if flags is None:
+        return ""
+    name = flags.name if hasattr(flags, "name") else str(flags)
+    # Map verbose enum names to short tags
+    TAG = {
+        "MINIDUMP_THREAD_INFO_EXITED_THREAD":   "[EXITED]",
+        "MINIDUMP_THREAD_INFO_WRITING_THREAD":  "[DUMPER]",
+        "MINIDUMP_THREAD_INFO_ERROR_THREAD":    "[ERROR]",
+        "MINIDUMP_THREAD_INFO_INVALID_CONTEXT": "[NO_CTX]",
+        "MINIDUMP_THREAD_INFO_INVALID_INFO":    "[NO_INFO]",
+        "MINIDUMP_THREAD_INFO_INVALID_TEB":     "[NO_TEB]",
+    }
+    return TAG.get(name, f"[{name}]") if name else ""
+
+
 def cmd_threads(mf):
+    import datetime
+
     threads  = {t.ThreadId: t for t in (mf.threads.threads if mf.threads else [])}
     infos    = get_thread_infos(mf)
     modules  = get_modules(mf)
 
-    print(f"\n{BOLD('TID'):<10} {BOLD('StartAddress'):<20} {BOLD('KernelTime'):<12} {BOLD('UserTime'):<12} {BOLD('Backed By')}")
-    print("─" * 90)
+    # Determine whether timing data is available (CreateTime != 0 for any thread)
+    has_times = any(getattr(ti, "CreateTime", 0) for ti in infos)
+
     for ti in infos:
-        sa  = ti.StartAddress or 0
-        mod = addr_to_module(sa, modules)
+        sa     = ti.StartAddress or 0
+        mod    = addr_to_module(sa, modules)
         backed = DIM(os.path.basename(mod.name)) if mod else RED("⚠  NOT IN ANY MODULE")
-        print(f"0x{ti.ThreadId:<8x} 0x{sa:<18x} {ti.KernelTime:<12} {ti.UserTime:<12} {backed}")
+
+        # ── Flags / status ────────────────────────────────────────────────
+        flag_tag    = _dumpflags_str(getattr(ti, "DumpFlags", None))
+        exit_status = getattr(ti, "ExitStatus", None)
+        exited      = flag_tag == "[EXITED]"
+
+        # ── Times ─────────────────────────────────────────────────────────
+        create_time = _filetime_to_str(getattr(ti, "CreateTime", 0))
+        exit_time   = _filetime_to_str(getattr(ti, "ExitTime",   0))
+        kernel_time = getattr(ti, "KernelTime", 0)
+        user_time   = getattr(ti, "UserTime",   0)
+
+        # ── Render ────────────────────────────────────────────────────────
+        tid_str = f"0x{ti.ThreadId:x}"
+        if flag_tag == "[DUMPER]":
+            tid_str = CYAN(tid_str) + f" {CYAN(flag_tag)}"
+        elif exited:
+            tid_str = DIM(tid_str) + f" {DIM(flag_tag)}"
+        elif flag_tag:
+            tid_str = YELLOW(tid_str) + f" {YELLOW(flag_tag)}"
+
+        print(f"\n  {BOLD('TID')}              {tid_str}")
+        print(f"  {'StartAddress':<16} 0x{sa:x}  ← {backed}")
+        if has_times:
+            print(f"  {'Created':<16} {create_time}")
+            if exited:
+                print(f"  {'Exited':<16} {YELLOW(exit_time)}")
+                if exit_status is not None:
+                    code_str = f"0x{exit_status:x}"
+                    label    = YELLOW(code_str) if exit_status else DIM(code_str + " (clean)")
+                    print(f"  {'ExitStatus':<16} {label}")
+            else:
+                print(f"  {'Exited':<16} {DIM('(still running)')}")
+        print(f"  {'KernelTime':<16} {kernel_time}")
+        print(f"  {'UserTime':<16} {user_time}")
+
+    if not has_times:
+        print(f"\n  {DIM('[~] CreateTime/ExitTime not available — dump was produced without ThreadInfoList stream.')}")
+
     print(f"\n{GREEN(f'[+] {len(infos)} thread(s).')}")
 
 
@@ -364,6 +506,79 @@ def cmd_sysinfo(mf: MinidumpFile):
         print(f"    {'Threads in dump':<22} {len(mf.threads.threads)}")
     if mf.modules:
         print(f"    {'Modules in dump':<22} {len(mf.modules.modules)}")
+    print()
+
+
+def cmd_pid(mf: MinidumpFile):
+    """
+    Report the Process ID recorded in the minidump.
+
+    Tries multiple streams in priority order so the result is as reliable
+    as possible even when a dump was produced by a non-standard tool:
+
+      1. MINIDUMP_MISC_INFO  – most authoritative; written by MiniDumpWriteDump
+      2. Thread list         – all threads share the same owning PID on Windows;
+                               reported as a cross-check when MiscInfo is absent
+      3. Exception stream    – contains ThreadId; used purely as a last resort
+         (gives TID, not PID, so it is labelled accordingly)
+    """
+    pid      = None
+    source   = None
+    warnings = []
+
+    # ── 1. MiscInfo (most reliable) ──────────────────────────────────────
+    mi = mf.misc_info
+    if mi and getattr(mi, "ProcessId", None):
+        pid    = mi.ProcessId
+        source = "MINIDUMP_MISC_INFO (ProcessId field)"
+
+    # ── 2. Thread list cross-check / fallback ────────────────────────────
+    #    minidump-python exposes thread.ThreadId but NOT thread.ProcessId
+    #    directly; however, we can cross-check that MiscInfo PID is plausible
+    #    by confirming threads exist.  When MiscInfo is missing we report the
+    #    thread count as evidence and surface any TID that might help.
+    threads = mf.threads.threads if mf.threads else []
+    if threads and pid is None:
+        tids = [t.ThreadId for t in threads]
+        warnings.append(
+            f"MiscInfo stream absent — PID not directly recoverable from thread list.\n"
+            f"    {len(tids)} thread(s) found: "
+            + ", ".join(f"0x{t:x}" for t in tids[:8])
+            + (" …" if len(tids) > 8 else "")
+        )
+
+    # ── 3. Exception stream – last resort (gives TID, not PID) ───────────
+    exc = getattr(mf, "exception", None)
+    exc_tid = None
+    if exc and pid is None:
+        try:
+            exc_tid = exc.ThreadId
+        except AttributeError:
+            pass
+        if exc_tid:
+            warnings.append(
+                f"Exception stream present: faulting TID = 0x{exc_tid:x} "
+                f"(this is a Thread ID, not a Process ID)"
+            )
+
+    # ── Output ────────────────────────────────────────────────────────────
+    print(f"\n{BOLD('═══ PROCESS ID ═══')}")
+
+    if pid is not None:
+        print(f"  {'PID (decimal)':<26} {GREEN(str(pid))}")
+        print(f"  {'PID (hex)':<26} {GREEN(f'0x{pid:x}')}")
+        print(f"  {'Source':<26} {DIM(source)}")
+        if threads:
+            print(f"  {'Threads in dump':<26} {len(threads)}")
+    else:
+        print(f"  {YELLOW('[!] ProcessId not found in MiscInfo stream.')}")
+
+    for w in warnings:
+        print(f"\n  {YELLOW('[~]')} {w}")
+
+    if pid is None and not warnings:
+        print(f"  {RED('[!] Could not determine PID — dump may lack MiscInfo, thread list, and exception stream.')}")
+
     print()
 
 
@@ -1675,6 +1890,7 @@ def main():
     mode.add_argument("--extract",      metavar="ADDR",      help="Extract raw bytes at address")
     mode.add_argument("--strings",      metavar="ADDR",      help="Extract strings at address")
     mode.add_argument("--peb",          action="store_true", help="Show PEB info")
+    mode.add_argument("--pid",          action="store_true", help="Show the Process ID recorded in the dump")
     mode.add_argument("--sysinfo",      action="store_true", help="Show OS, host, process and CPU summary")
     mode.add_argument("--diff",         metavar="DUMP2",     help="Diff against a second .DMP file")
     mode.add_argument("--report",        action="store_true", help="Generate triage report anchored to a TID, address, or string")
@@ -1703,6 +1919,7 @@ def main():
     elif args.modules:      cmd_modules(mf)
     elif args.threads:      cmd_threads(mf)
     elif args.peb:          cmd_peb(mf)
+    elif args.pid:          cmd_pid(mf)
     elif args.sysinfo:      cmd_sysinfo(mf)
     elif args.report:
         if not args.report_tid and not args.report_addr and not args.report_string:
