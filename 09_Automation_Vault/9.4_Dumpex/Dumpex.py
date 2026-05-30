@@ -16,6 +16,7 @@ HUNT (TTP detection):
   python dumpex.py dump.DMP --hunt hollowing
   python dumpex.py dump.DMP --hunt stomping
   python dumpex.py dump.DMP --hunt pipe
+  python dumpex.py dump.DMP --hunt cs-beacon [--verbose]
   python dumpex.py dump.DMP --hunt all [--verbose]
 
 REPORT (alert triage):
@@ -37,6 +38,8 @@ import argparse
 import re
 import sys
 import os
+import struct
+import binascii
 from pathlib import Path
 
 try:
@@ -107,6 +110,69 @@ def addr_to_module(addr: int, modules: list):
     return None
 
 SUSPICIOUS_PROTS = {"PAGE_EXECUTE_READWRITE", "PAGE_EXECUTE_WRITECOPY"}
+
+
+def va_to_file_offset(mf: MinidumpFile, va: int):
+    """
+    Translate a Virtual Address (in the target process) to its byte offset
+    inside the .dmp file, using the memory segment table.
+
+    Returns None if the VA is not covered by any segment in the dump.
+
+    Address types in a minidump
+    ───────────────────────────
+      Virtual Address (VA)
+          The address as seen by the target process at the time of the dump.
+          Every field named BaseAddress / StartAddress / baseaddress /
+          StartOfMemoryRange carries a VA. It is NOT a physical RAM address.
+
+      File offset  (dump-file offset)
+          Byte position inside the .dmp file where that memory was written.
+          Formula: segment.start_file_address + (va - segment.start_virtual_address)
+          This is the closest thing to a "physical" locator that a minidump
+          exposes, but it refers to the file, not to RAM.
+
+      Physical address (RAM)
+          The real hardware address. Minidumps do NOT record this; it is
+          only available in kernel / full memory dumps with PFN tables.
+    """
+    if not va:
+        return None
+    segs = []
+    if mf.memory_segments_64 and mf.memory_segments_64.memory_segments:
+        segs = mf.memory_segments_64.memory_segments
+    elif mf.memory_segments and mf.memory_segments.memory_segments:
+        segs = mf.memory_segments.memory_segments
+    for seg in segs:
+        if seg.start_virtual_address <= va < seg.end_virtual_address:
+            return seg.start_file_address + (va - seg.start_virtual_address)
+    return None
+
+
+def addr_label(mf: MinidumpFile, va: int, region_base=None, indent: int = 2) -> str:
+    """
+    Return a consistent multi-line annotation for any VA returned by hunt/report.
+
+      VA (process)   0x<va>          — address in the target process
+      File offset    0x<offset>      — byte position inside the .dmp file
+      Region base    0x<base>        — start of the enclosing memory region
+                                       (omitted when same as va or not given)
+
+    Physical Address (RAM) is not available in minidumps.
+    """
+    pad = " " * indent
+    lines = [f"{pad}{'VA (process)':<16} 0x{va:016x}"]
+
+    fo = va_to_file_offset(mf, va)
+    if fo is not None:
+        lines.append(f"{pad}{'File offset (.dmp)':<20} 0x{fo:016x}")
+    else:
+        lines.append(f"{pad}{'File offset (.dmp)':<20} {DIM('(VA not captured in dump)')}")
+
+    if region_base is not None and region_base != va:
+        lines.append(f"{pad}{'Region base (VA)':<20} 0x{region_base:016x}")
+
+    return "\n".join(lines)
 
 
 def _resolve_size(mf: MinidumpFile, addr: int, requested_size: int | None) -> int:
@@ -707,10 +773,14 @@ def cmd_report(mf: MinidumpFile, report_tid: str = None, report_addr: str = None
         print(GREEN(f"  [+] Found in {len(hits)} region(s):"))
         for r, off, enc in private_hits:
             abs_addr = r.BaseAddress + off
+            fo_abs   = va_to_file_offset(mf, abs_addr)
+            fo_str   = f"0x{fo_abs:x}" if fo_abs is not None else "(not captured)"
             p        = prot_str(r.Protect)
             t        = prot_str(r.Type)
             rwx_tag  = RED(" ◄ RWX") if any(s in p for s in SUSPICIOUS_PROTS) else ""
-            print(f"    {RED('►')} 0x{r.BaseAddress:016x}  hit@0x{abs_addr:x}  [{enc}]  {p}  {t}{rwx_tag}")
+            print(f"    {RED('►')} [{enc}]  {p}  {t}{rwx_tag}")
+            print(f"      VA  = region base 0x{r.BaseAddress:016x}  +  offset 0x{off:x}  =  0x{abs_addr:016x}")
+            print(f"      DMP = file offset {fo_str}")
         if image_hits:
             mod_names = sorted({os.path.basename(m.name) for _, _, _, m in image_hits})
             print(DIM(f"    [·] {len(image_hits)} hit(s) in known MEM_IMAGE modules "
@@ -812,8 +882,13 @@ def cmd_report(mf: MinidumpFile, report_tid: str = None, report_addr: str = None
             is_rwx     = any(s in p for s in SUSPICIOUS_PROTS)
             is_private = "MEM_PRIVATE" in mtype
 
-            print(f"  {'Region Base':<22} 0x{region.BaseAddress:x}")
-            print(f"  {'Region Size':<22} 0x{region.RegionSize:x}  ({region.RegionSize // 1024} KB)")
+            fo_reg = va_to_file_offset(mf, region.BaseAddress)
+            fo_reg_str = f"0x{fo_reg:x}" if fo_reg is not None else "(not captured in dump)"
+            print(f"  {'Region base (VA)':<24} 0x{region.BaseAddress:016x}  {DIM('← process virtual address')}")
+            print(f"  {'Region base (file offset)':<24} {fo_reg_str}  {DIM('← byte offset inside .dmp')}")
+            print(f"  {'Physical addr (RAM)':<24} {DIM('not recorded in minidumps')}")
+            print(f"  {'IOC addr = base + offset':<24} {DIM('see formula per string below')}")
+            print(f"  {'Region Size':<24} 0x{region.RegionSize:x}  ({region.RegionSize // 1024} KB)")
             print(f"  {'Protection':<22} {RED(p) if is_rwx else p}")
             print(f"  {'Type':<22} {mtype}")
             print(f"  {'Module Owner':<22} "
@@ -883,8 +958,12 @@ def cmd_report(mf: MinidumpFile, report_tid: str = None, report_addr: str = None
             if ioc_hits:
                 print(f"  {RED(f'[!] {len(ioc_hits)} IOC match(es):')}")
                 for off, enc, s in ioc_hits:
-                    abs_addr = region.BaseAddress + off
-                    print(RED(f"    0x{abs_addr:x}  {CYAN(f'[{enc}]'):<14}  {s}"))
+                    abs_addr   = region.BaseAddress + off
+                    fo_abs     = va_to_file_offset(mf, abs_addr)
+                    fo_abs_str = f"0x{fo_abs:x}" if fo_abs is not None else "(not captured)"
+                    print(RED(f"    {CYAN(f'[{enc}]'):<14} {s}"))
+                    print(RED(f"      VA  = region base 0x{region.BaseAddress:016x}  +  offset 0x{off:x}  =  0x{abs_addr:016x}"))
+                    print(RED(f"      DMP = file offset {fo_abs_str}"))
                     if off in net_offs:
                         print(YELLOW("    ↳ Network pattern — ±128 byte context:"))
                         print(_hexdump_context(data, off, region.BaseAddress))
@@ -899,8 +978,11 @@ def cmd_report(mf: MinidumpFile, report_tid: str = None, report_addr: str = None
             if notable:
                 print(f"\n  {BOLD('Other notable strings (len > 20, top 20):')}")
                 for off, enc, s in notable:
-                    print(f"    0x{region.BaseAddress + off:x}  "
-                          f"{CYAN(f'[{enc}]'):<14}  {s}")
+                    abs_addr   = region.BaseAddress + off
+                    fo_abs     = va_to_file_offset(mf, abs_addr)
+                    fo_abs_str = f"0x{fo_abs:x}" if fo_abs is not None else "?"
+                    print(f"    {CYAN(f'[{enc}]'):<14} {s}")
+                    print(DIM(f"      VA  = 0x{region.BaseAddress:016x} + 0x{off:x} = 0x{abs_addr:016x}  DMP = {fo_abs_str}"))
 
             n_ascii = sum(1 for _, e, _ in strings if e == 'ASCII')
             n_utf16 = sum(1 for _, e, _ in strings if e == 'UTF16')
@@ -997,7 +1079,13 @@ def _hunt_injection(mf: MinidumpFile, verbose: bool = False) -> dict:
             for r in rwx:
                 p = prot_str(r.Protect)
                 t = prot_str(r.Type)
-                detail += f"\n          0x{r.BaseAddress:x}  size=0x{r.RegionSize:x}  {p}  {t}"
+                fo = va_to_file_offset(mf, r.BaseAddress)
+                fo_str = f"0x{fo:x}" if fo is not None else "(not captured)"
+                detail += (f"\n          VA (process)      0x{r.BaseAddress:016x}"
+                           f"  size=0x{r.RegionSize:x}"
+                           f"\n          File offset       {fo_str}"
+                           f"\n          Region base (VA)  0x{r.BaseAddress:016x}"
+                           f"\n          {p}  {t}")
         _print_check("RWX memory regions", RED("SUSPICIOUS"), detail)
     else:
         _print_check("RWX memory regions", GREEN("CLEAN — none found"))
@@ -1008,7 +1096,13 @@ def _hunt_injection(mf: MinidumpFile, verbose: bool = False) -> dict:
         detail = f"{len(hidden)} unregistered PE(s)"
         if verbose:
             for r, _ in hidden:
-                detail += f"\n          0x{r.BaseAddress:x}  {prot_str(r.Protect)}"
+                p = prot_str(r.Protect)
+                fo = va_to_file_offset(mf, r.BaseAddress)
+                fo_str = f"0x{fo:x}" if fo is not None else "(not captured)"
+                detail += (f"\n          VA (process)      0x{r.BaseAddress:016x}"
+                           f"\n          File offset       {fo_str}"
+                           f"\n          Region base (VA)  0x{r.BaseAddress:016x}"
+                           f"\n          {p}")
         _print_check("Hidden PE headers (MZ not in module list)", RED("SUSPICIOUS"), detail)
     else:
         _print_check("Hidden PE headers", GREEN("CLEAN — all MZ headers in module list"))
@@ -1018,7 +1112,13 @@ def _hunt_injection(mf: MinidumpFile, verbose: bool = False) -> dict:
         detail = f"{len(threads)} thread(s) with no module backing"
         if verbose:
             for ti in threads:
-                detail += f"\n          TID=0x{ti.ThreadId:x}  StartAddr=0x{ti.StartAddress or 0:x}"
+                sa = ti.StartAddress or 0
+                fo = va_to_file_offset(mf, sa)
+                fo_str = f"0x{fo:x}" if fo is not None else "(not captured)"
+                detail += (f"\n          TID=0x{ti.ThreadId:x}"
+                           f"\n          VA (process)   0x{sa:016x}"
+                           f"\n          File offset    {fo_str}"
+                           f"\n          Region base (VA) — see StartAddr above")
         _print_check("Unbacked threads", RED("SUSPICIOUS"), detail)
     else:
         _print_check("Unbacked threads", GREEN("CLEAN — all threads backed by known modules"))
@@ -1064,8 +1164,12 @@ def _hunt_hollowing(mf: MinidumpFile, verbose: bool = False) -> dict:
     image_base = peb.image_base_address
     image_path = peb.image_path or "(unknown)"
 
-    print(f"  {DIM('PEB ImagePath  :')} {image_path}")
-    print(f"  {DIM('ImageBaseAddr  :')} 0x{image_base:x}\n")
+    fo_base = va_to_file_offset(mf, image_base)
+    fo_base_str = f"0x{fo_base:x}" if fo_base is not None else "(not captured)"
+    print(f"  {DIM('PEB ImagePath     :')} {image_path}")
+    print(f"  {DIM('ImageBase VA      :')} 0x{image_base:016x}  {DIM('(process virtual address)')}")
+    print(f"  {DIM('ImageBase offset  :')} {fo_base_str}          {DIM('(byte offset in .dmp file)')}")
+    print()
 
     # ── Check 1: Memory type at image base ────────────────────────────
     base_region = None
@@ -1082,13 +1186,17 @@ def _hunt_hollowing(mf: MinidumpFile, verbose: bool = False) -> dict:
         mtype = prot_str(base_region.Type)
         p     = prot_str(base_region.Protect)
         if "MEM_IMAGE" in mtype:
+            fo_reg = va_to_file_offset(mf, base_region.BaseAddress)
+            fo_reg_str = f"0x{fo_reg:x}" if fo_reg is not None else "(not captured)"
             _print_check("Memory type at image base",
                          GREEN("CLEAN — MEM_IMAGE (mapped from disk)"),
-                         f"0x{base_region.BaseAddress:x}  {mtype}  {p}")
+                         f"VA (process) 0x{base_region.BaseAddress:016x}  File offset {fo_reg_str}  {mtype}  {p}")
         else:
+            fo_reg = va_to_file_offset(mf, base_region.BaseAddress)
+            fo_reg_str = f"0x{fo_reg:x}" if fo_reg is not None else "(not captured)"
             _print_check("Memory type at image base",
                          RED("SUSPICIOUS — MEM_PRIVATE (not mapped from disk)"),
-                         f"0x{base_region.BaseAddress:x}  {mtype}  {p}")
+                         f"VA (process) 0x{base_region.BaseAddress:016x}  File offset {fo_reg_str}  {mtype}  {p}")
             findings["score"] += 1
 
     # ── Check 2: MZ header at image base ──────────────────────────────
@@ -1477,16 +1585,30 @@ def _hunt_pipe(mf: MinidumpFile, verbose: bool = False) -> dict:
                 except Exception:
                     return repr(raw)
 
+        # Classify: only Microsoft system DLLs under System32/SysWOW64 are
+        # treated as "expected".  Any other image-backed region — including
+        # executables like update.exe, or DLLs outside the system directories
+        # — is flagged the same as private memory so it cannot hide pipe refs.
+        def _is_system_dll(module) -> bool:
+            if module is None:
+                return False
+            path = (module.name or "").replace("\\", "/").lower()
+            return (
+                "/windows/system32/"  in path or
+                "/windows/syswow64/" in path or
+                "/windows/winsxs/"   in path
+            )
+
         for m in PIPE_PAT_ASCII.finditer(data):
             name = _extract_pipe_name(data, m, is_utf16=False)
-            if "MEM_IMAGE" in mtype and mod:
+            if "MEM_IMAGE" in mtype and _is_system_dll(mod):
                 image_pipes.append((r, os.path.basename(mod.name), name))
             else:
                 private_pipes.append((r, m.start(), name))
 
         for m in PIPE_PAT_UTF16.finditer(data):
             name = _extract_pipe_name(data, m, is_utf16=True)
-            if "MEM_IMAGE" in mtype and mod:
+            if "MEM_IMAGE" in mtype and _is_system_dll(mod):
                 image_pipes.append((r, os.path.basename(mod.name), name))
             else:
                 private_pipes.append((r, m.start(), name))
@@ -1501,26 +1623,38 @@ def _hunt_pipe(mf: MinidumpFile, verbose: bool = False) -> dict:
             deduped.append((r, off, name))
     private_pipes = deduped
 
-    # ── Check 1: Pipe names in MEM_PRIVATE ───────────────────────────
+    # ── Check 1: Pipe names outside trusted system DLLs ──────────────
     if private_pipes:
-        detail = f"{len(private_pipes)} pipe name(s) in unregistered private memory"
+        detail = f"{len(private_pipes)} pipe name(s) in non-system memory"
         if verbose:
             for r, off, name in private_pipes:
-                p = prot_str(r.Protect)
-                rwx = RED(" [RWX]") if any(s in p for s in SUSPICIOUS_PROTS) else ""
-                detail += f"\n          0x{r.BaseAddress + off:x}  {name.strip()}{rwx}"
-        _print_check("Pipe names in MEM_PRIVATE (unregistered memory)",
-                     RED("SUSPICIOUS — pipe names should not appear in private unregistered memory"),
+                p    = prot_str(r.Protect)
+                mtype_r = prot_str(r.Type)
+                mod_r   = addr_to_module(r.BaseAddress, modules)
+                rwx  = RED(" [RWX]") if any(s in p for s in SUSPICIOUS_PROTS) else ""
+                abs_va = r.BaseAddress + off
+                fo_abs = va_to_file_offset(mf, abs_va)
+                fo_str = f"0x{fo_abs:x}" if fo_abs is not None else "(not captured)"
+                if mod_r and "MEM_IMAGE" in mtype_r:
+                    backer = YELLOW(f" [image: {os.path.basename(mod_r.name)}]")
+                else:
+                    backer = DIM(" [private/unregistered]")
+                detail += (f"\n          VA (process)   0x{abs_va:016x}{rwx}{backer}"
+                           f"\n          File offset    {fo_str}"
+                           f"\n          Region base    0x{r.BaseAddress:016x}"
+                           f"\n          Pipe name: {name.strip()}")
+        _print_check("Pipe names outside trusted system DLLs",
+                     RED("SUSPICIOUS — pipe name found in non-system memory"),
                      detail)
         findings["private_pipes"] = private_pipes
         findings["score"] += 1
     else:
-        _print_check("Pipe names in MEM_PRIVATE",
+        _print_check("Pipe names outside trusted system DLLs",
                      GREEN("CLEAN — all pipe name references are in known system modules"))
 
     if image_pipes and verbose:
         mod_names = sorted({n for _, n, _ in image_pipes})
-        print(DIM(f"  [·] {len(image_pipes)} pipe reference(s) in known modules "
+        print(DIM(f"  [·] {len(image_pipes)} pipe reference(s) in system DLLs "
                   f"({', '.join(mod_names)}) — expected, skipped\n"))
 
     # ── Check 2: C2 artifacts near private pipe names ─────────────────
@@ -1619,28 +1753,527 @@ def _hunt_pipe(mf: MinidumpFile, verbose: bool = False) -> dict:
 
     return findings
 
+# ── Cobalt Strike Beacon Detection ───────────────────────────────────────────
+# Decoding logic adapted from 1768.py by Didier Stevens (public domain)
+# https://blog.didierstevens.com/programs/cobalt-strike-tools/
+#
+# Locates the XOR-obfuscated TLV config table written by MiniDumpWriteDump and
+# extracted during beacon reflective loading.  Two XOR keys are tried:
+#   0x69  ('i') — CS3-era beacons
+#   0x2E  ('.') — CS4-era beacons
+
+CS_BEACON_SIGNATURE  = b'\x00\x01\x00\x01\x00\x02'   # plaintext TLV start
+CS_SIG_XOR69         = b'ihihik'                       # above ^ 0x69
+CS_SIG_XOR2E         = b'././.,'                       # above ^ 0x2e
+CS_MAX_SEG_SCAN      = 50 * 1024 * 1024               # skip segments > 50 MB
+
+# Field IDs from 1768.py dConfigIdentifiers
+CS_FIELD_NAMES = {
+    0x0001: 'BeaconType',
+    0x0002: 'Port',
+    0x0003: 'SleepTime',
+    0x0004: 'MaxGetSize',
+    0x0005: 'Jitter',
+    0x0006: 'MaxDNS',
+    0x0007: 'PublicKey',
+    0x0008: 'C2Server',
+    0x0009: 'UserAgent',
+    0x000a: 'HTTP_PostURI',
+    0x000b: 'MalleableC2',
+    0x000c: 'HTTP_GetHeader',
+    0x000d: 'HTTP_PostHeader',
+    0x000e: 'SpawnTo',
+    0x000f: 'PipeName',
+    0x0010: 'KillDate_Year',
+    0x0011: 'KillDate_Month',
+    0x0012: 'KillDate_Day',
+    0x0013: 'DNS_Idle',
+    0x0014: 'DNS_Sleep',
+    0x0015: 'SSH_Host',
+    0x0016: 'SSH_Port',
+    0x0017: 'SSH_Username',
+    0x0018: 'SSH_Password',
+    0x0019: 'SSH_PubKey',
+    0x001a: 'HTTP_GetVerb',
+    0x001b: 'HTTP_PostVerb',
+    0x001c: 'HttpPostChunk',
+    0x001d: 'SpawnTo_x86',
+    0x001e: 'SpawnTo_x64',
+    0x001f: 'CryptoScheme',
+    0x0020: 'Proxy',
+    0x0021: 'Proxy_Username',
+    0x0022: 'Proxy_Password',
+    0x0023: 'Proxy_Type',
+    0x0025: 'LicenseID',
+    0x0026: 'bStageCleanup',
+    0x0027: 'bCFGCaution',
+    0x0028: 'KillDate',
+    0x002b: 'ProcInject_StartRWX',
+    0x002c: 'ProcInject_UseRWX',
+    0x002d: 'ProcInject_MinAlloc',
+    0x002e: 'ProcInject_Transform_x86',
+    0x002f: 'ProcInject_Transform_x64',
+    0x0031: 'BindHost',
+    0x0032: 'UsesCookies',
+    0x0033: 'ProcInject_Execute',
+    0x0034: 'ProcInject_AllocMethod',
+    0x0035: 'ProcInject_Stub',
+    0x0036: 'HostHeader',
+    0x0037: 'EXIT_FUNK',
+    0x0038: 'SSH_Banner',
+    0x0039: 'SMB_FrameHeader',
+    0x003a: 'TCP_FrameHeader',
+    0x003b: 'HeadersToRemove',
+    0x003c: 'DNS_Beacon',
+    0x003d: 'DNS_A',
+    0x003e: 'DNS_AAAA',
+    0x003f: 'DNS_TXT',
+    0x0040: 'DNS_Metadata',
+    0x0041: 'DNS_Output',
+    0x0042: 'DNS_Resolver',
+    0x0043: 'DNS_Strategy',
+    0x0044: 'DNS_StrategyRotateSecs',
+    0x0045: 'DNS_StrategyFailX',
+    0x0046: 'DNS_StrategyFailSecs',
+    0x0047: 'MaxRetry_Attempts',
+    0x0048: 'MaxRetry_Increase',
+    0x0049: 'MaxRetry_Duration',
+}
+
+# From 1768.py LookupConfigValue
+CS_BEACON_TYPES = {
+    0:  'HTTP',
+    1:  'DNS',
+    2:  'SMB (bind pipe)',
+    4:  'TCP (reverse)',
+    8:  'HTTPS',
+    16: 'TCP (bind)',
+}
+CS_PROXY_TYPES = {
+    1: 'no proxy',
+    2: 'IE settings',
+    4: 'hardcoded proxy',
+}
+CS_INJECT_PERMS = {
+    0x01: 'PAGE_NOACCESS',      0x02: 'PAGE_READONLY',
+    0x04: 'PAGE_READWRITE',     0x08: 'PAGE_WRITECOPY',
+    0x10: 'PAGE_EXECUTE',       0x20: 'PAGE_EXECUTE_READ',
+    0x40: 'PAGE_EXECUTE_READWRITE',
+    0x80: 'PAGE_EXECUTE_WRITECOPY',
+}
+
+
+def _cs_xor_bytes(data: bytes, key: int) -> bytes:
+    """Single-byte XOR decode. Mirrors 1768.py Xor() for single-byte keys."""
+    kb = key & 0xff
+    return bytes(b ^ kb for b in data)
+
+
+def _cs_scan_segment(data: bytes, seg_va: int, seg_fo: int) -> list:
+    """
+    Search one memory segment for CS beacon config signatures.
+
+    Strategy (from 1768.py AnalyzeEmbeddedPEFileSub):
+      For each XOR key (0x69, 0x2e), search for the pre-XOR'd marker.
+      On hit: XOR-decode from that offset, verify the plaintext signature.
+
+    Returns list of (xor_key, hit_va, hit_file_offset, decoded_config_bytes).
+    """
+    results = []
+    for key, marker in ((0x69, CS_SIG_XOR69), (0x2e, CS_SIG_XOR2E)):
+        start = 0
+        while True:
+            idx = data.find(marker, start)
+            if idx == -1:
+                break
+            chunk = _cs_xor_bytes(data[idx: idx + 0x10000], key)
+            if chunk.startswith(CS_BEACON_SIGNATURE):
+                results.append((key, seg_va + idx, seg_fo + idx, chunk))
+            start = idx + 1
+    return results
+
+
+def _cs_parse_tlv(data: bytes) -> dict:
+    """
+    Parse a CS TLV config block (adapted from 1768.py AnalyzeEmbeddedPEFileSub2).
+
+    Wire format (all big-endian):
+        field_id  uint16    (0 = end of config)
+        type      uint16    (1=uint16, 2=uint32, 3=bytes)
+        length    uint16
+        value     <length> bytes
+
+    Returns dict: field_id (int) -> {name, type, raw, value}.
+    """
+    fields = {}
+    pos = 0
+    while pos + 6 <= len(data):
+        fid   = struct.unpack_from('>H', data, pos)[0]; pos += 2
+        if fid == 0:
+            break
+        ftype = struct.unpack_from('>H', data, pos)[0]; pos += 2
+        flen  = struct.unpack_from('>H', data, pos)[0]; pos += 2
+        if pos + flen > len(data):
+            break
+        raw  = data[pos: pos + flen]; pos += flen
+
+        value = None
+        try:
+            if ftype == 1 and flen == 2:
+                value = struct.unpack('>H', raw)[0]
+            elif ftype == 2 and flen == 4:
+                value = struct.unpack('>I', raw)[0]
+            elif ftype == 3:
+                value = raw.rstrip(b'\x00').decode('utf-8', errors='replace')
+        except Exception:
+            value = raw
+
+        fields[fid] = {
+            'name':  CS_FIELD_NAMES.get(fid, f'field_0x{fid:04x}'),
+            'type':  ftype,
+            'raw':   raw,
+            'value': value,
+        }
+    return fields
+
+
+def _cs_decode_instructions(raw: bytes, itype: int) -> list:
+    """
+    Decode a Malleable C2 instruction stream (adapted from 1768.py DecodeInstructions).
+
+    itype: 1 = server→client (MalleableC2 field 0x000b)
+           2 = GET  header transforms (field 0x000c)
+           3 = POST header transforms (field 0x000d)
+
+    Opcode semantics differ between itype==1 and itype==2/3:
+      opcodes 1 & 2 carry an integer operand (remove N bytes) in itype==1,
+      but a length-prefixed string operand (append/prepend data) in itype==2/3.
+    """
+    def _rint(buf, p):
+        if p + 4 > len(buf): return None, p
+        return struct.unpack_from('>I', buf, p)[0], p + 4
+
+    def _rstr(buf, p):
+        n, p = _rint(buf, p)
+        if n is None or p + n > len(buf): return None, p
+        return buf[p: p + n].decode('latin-1', errors='replace'), p + n
+
+    MALLEABLE = 1
+    instrs, pos = [], 0
+    while pos + 4 <= len(raw):
+        op = struct.unpack_from('>I', raw, pos)[0]; pos += 4
+        if op == 0:   break
+        if op == 1:   # APPEND / remove-from-end
+            if itype == MALLEABLE:
+                n, pos = _rint(raw, pos); instrs.append(f'Remove {n} bytes from end')
+            else:
+                s, pos = _rstr(raw, pos); instrs.append(f'Append {repr(s)}')
+        elif op == 2: # PREPEND / remove-from-begin
+            if itype == MALLEABLE:
+                n, pos = _rint(raw, pos); instrs.append(f'Remove {n} bytes from begin')
+            else:
+                s, pos = _rstr(raw, pos); instrs.append(f'Prepend {repr(s)}')
+        elif op == 3:  instrs.append('BASE64')
+        elif op == 4:  instrs.append('Print')
+        elif op == 5:  s, pos = _rstr(raw, pos); instrs.append(f'Parameter {repr(s)}')
+        elif op == 6:  s, pos = _rstr(raw, pos); instrs.append(f'Header {repr(s)}')
+        elif op == 7:  # BUILD
+            n, pos = _rint(raw, pos)
+            label = {0: 'SessionId', 1: 'Output'}.get(n, 'Metadata') if itype == 3 else 'Metadata'
+            instrs.append(f'Build {label}')
+        elif op == 8:  instrs.append('NETBIOS lowercase')
+        elif op == 9:  s, pos = _rstr(raw, pos); instrs.append(f'Const_parameter {repr(s)}')
+        elif op == 10: s, pos = _rstr(raw, pos); instrs.append(f'Const_header {repr(s)}')
+        elif op == 11: instrs.append('NETBIOS uppercase')
+        elif op == 12: instrs.append('Uri_append')
+        elif op == 13: instrs.append('BASE64 URL')
+        elif op == 14:
+            s1, pos = _rstr(raw, pos); s2, pos = _rstr(raw, pos)
+            instrs.append(f'STRREP {repr(s1)} -> {repr(s2)}')
+        elif op == 15: instrs.append('XOR with 4-byte random key (mask)')
+        elif op == 16: s, pos = _rstr(raw, pos); instrs.append(f'Const_host_header {repr(s)}')
+        else:          instrs.append(f'Unknown(0x{op:02x})')
+    return instrs
+
+
+def _cs_guess_version(fields: dict) -> str:
+    """Estimate CS version from highest field ID (mirrors 1768.py DetermineCSVersionFromConfig)."""
+    if not fields: return 'unknown'
+    m = max(fields.keys())
+    if m < 55:  return '3.x'
+    if m == 55: return '4.0'
+    if m < 58:  return '4.1'
+    if m == 58: return '4.2'
+    if m == 70: return '4.3'
+    return '4.4+'
+
+
+def _cs_sanity_check(fields: dict) -> bool:
+    """
+    Validate extracted config (mirrors 1768.py SanityCheckExtractedConfig):
+      - field 0x0001 (beacon type) must be present and a known value
+      - field 0x0007 (public key) must start with ASN.1 SEQUENCE prefix 0x308...
+    """
+    if 0x0001 not in fields or 0x0007 not in fields:
+        return False
+    if fields[0x0001]['value'] not in CS_BEACON_TYPES:
+        return False
+    return fields[0x0007]['raw'].hex().startswith('308')
+
+
+def _hunt_cs_beacon(mf: MinidumpFile, verbose: bool = False) -> dict:
+    """
+    Scan all captured memory segments for Cobalt Strike beacon configurations.
+
+    Algorithm (adapted from 1768.py by Didier Stevens, public domain):
+      1. Walk every captured memory segment in the minidump.
+      2. Search each segment for the XOR-encoded TLV signature with keys
+         0x69 (CS3) and 0x2E (CS4).
+      3. On a hit: XOR-decode, parse TLV records, run sanity check.
+      4. Extract and display: beacon type, C2 server/port/URI, User-Agent,
+         pipe name, license ID, sleep/jitter, SpawnTo, Malleable C2 profile
+         transforms, process injection settings, SSH/DNS transport fields.
+      5. Report VA (process address) + file offset (.dmp byte position) for
+         each hit, consistent with Dumpex address labeling conventions.
+
+    Address note:
+      hit VA         = segment.start_virtual_address + offset_within_segment
+      hit file offset = segment.start_file_address   + offset_within_segment
+    """
+    _print_hunt_header("Cobalt Strike Beacon Config")
+    findings = {'configs': [], 'score': 0}
+
+    segs = []
+    if mf.memory_segments_64 and mf.memory_segments_64.memory_segments:
+        segs = mf.memory_segments_64.memory_segments
+    elif mf.memory_segments and mf.memory_segments.memory_segments:
+        segs = mf.memory_segments.memory_segments
+
+    if not segs:
+        print(YELLOW("  [~] No memory segments in dump — cannot scan for beacon config.\n"))
+        return findings
+
+    skipped, hits = 0, []
+    reader = mf.get_reader()
+
+    print(DIM(f"  [*] Scanning {len(segs)} segment(s) for beacon signature …"))
+
+    for seg in segs:
+        if seg.size > CS_MAX_SEG_SCAN:
+            skipped += 1
+            continue
+        try:
+            data = reader.read(seg.start_virtual_address, seg.size)
+        except Exception:
+            continue
+
+        for xor_key, hit_va, hit_fo, cfg_bytes in _cs_scan_segment(
+                data, seg.start_virtual_address, seg.start_file_address):
+            fields = _cs_parse_tlv(cfg_bytes)
+            if not fields or not _cs_sanity_check(fields):
+                continue
+            if not any(h[1] == hit_va for h in hits):   # deduplicate by VA
+                hits.append((xor_key, hit_va, hit_fo, fields))
+
+    scan_note = f" ({skipped} segment(s) >50 MB skipped)" if skipped else ""
+    print(DIM(f"  [*] Scan complete{scan_note}."))
+
+    if not hits:
+        _print_check("Cobalt Strike beacon config",
+                     GREEN("CLEAN — no beacon config found in memory"))
+        print()
+        return findings
+
+    findings['score'] = len(hits)
+    print()
+
+    for idx, (xor_key, hit_va, hit_fo, fields) in enumerate(hits, 1):
+        cs_ver   = _cs_guess_version(fields)
+        key_desc = {0x69: "0x69 'i'  (CS3 encoding)",
+                    0x2e: "0x2E '.'  (CS4 encoding)"}.get(xor_key, f'0x{xor_key:02x}')
+
+        print(RED(f"  [!] Beacon config #{idx}  ──────────────────────────────────────────────"))
+        print(f"  {'VA (process)':<26} 0x{hit_va:016x}  {DIM('← virtual address in target process')}")
+        print(f"  {'File offset (.dmp)':<26} 0x{hit_fo:016x}  {DIM('← byte offset inside .dmp file')}")
+        print(f"  {'XOR key':<26} {key_desc}")
+        print(f"  {'CS version (estimated)':<26} {YELLOW(cs_ver)}")
+        print()
+
+        f = fields
+
+        # ── C2 / Identity / Transport ──────────────────────────────────
+        print(f"  {BOLD('── C2 / Identity / Transport ──────────────────────────────────────')}")
+
+        if 0x0001 in f:
+            btype     = f[0x0001]['value']
+            btype_str = CS_BEACON_TYPES.get(btype, f'unknown ({btype})')
+            color     = RED if btype in (1, 2) else YELLOW   # DNS/SMB = more covert
+            print(f"  {'BeaconType':<26} {color(btype_str)}")
+
+        if 0x0008 in f:
+            c2raw = (f[0x0008]['value'] or '').strip('\x00')
+            if ',' in c2raw:
+                host, uri = c2raw.split(',', 1)
+                print(f"  {'C2 Host':<26} {RED(host.strip())}")
+                print(f"  {'C2 GET URI':<26} {uri.strip()}")
+            else:
+                print(f"  {'C2 Server':<26} {RED(c2raw)}")
+
+        if 0x0002 in f:
+            print(f"  {'Port':<26} {f[0x0002]['value']}")
+
+        if 0x000a in f:
+            v = (f[0x000a]['value'] or '').strip('\x00')
+            if v: print(f"  {'HTTP POST URI':<26} {v}")
+
+        if 0x0009 in f:
+            ua = (f[0x0009]['value'] or '').strip('\x00')
+            if ua: print(f"  {'UserAgent':<26} {ua}")
+
+        if 0x0036 in f:
+            hh = (f[0x0036]['value'] or '').strip('\x00')
+            if hh: print(f"  {'HostHeader':<26} {hh}")
+
+        if 0x000f in f:
+            pipe = (f[0x000f]['value'] or '').strip('\x00')
+            if pipe: print(f"  {'PipeName':<26} {RED(pipe)}")
+
+        if 0x0025 in f:
+            print(f"  {'LicenseID':<26} {YELLOW(str(f[0x0025]['value']))}")
+
+        if 0x0003 in f:
+            sleep_ms = f[0x0003]['value'] or 0
+            jitter   = f[0x0005]['value'] if 0x0005 in f else 0
+            print(f"  {'Sleep / Jitter':<26} {sleep_ms} ms / {jitter}%")
+
+        if 0x0028 in f and f[0x0028]['value']:
+            print(f"  {'KillDate':<26} {f[0x0028]['value']}")
+
+        if 0x001a in f:
+            v = (f[0x001a]['value'] or '').strip('\x00')
+            if v: print(f"  {'HTTP GET Verb':<26} {v}")
+        if 0x001b in f:
+            v = (f[0x001b]['value'] or '').strip('\x00')
+            if v: print(f"  {'HTTP POST Verb':<26} {v}")
+
+        if 0x001d in f:
+            v = (f[0x001d]['value'] or '').strip('\x00')
+            if v: print(f"  {'SpawnTo x86':<26} {v}")
+        if 0x001e in f:
+            v = (f[0x001e]['value'] or '').strip('\x00')
+            if v: print(f"  {'SpawnTo x64':<26} {v}")
+
+        if 0x0020 in f:
+            proxy = (f[0x0020]['value'] or '').strip('\x00')
+            ptype = CS_PROXY_TYPES.get(f[0x0023]['value'] if 0x0023 in f else 0, '')
+            if proxy: print(f"  {'Proxy':<26} {proxy}  [{ptype}]")
+
+        # ── Process injection ──────────────────────────────────────────
+        inj_ids = {0x002b, 0x002c, 0x002d, 0x002e, 0x002f, 0x0033, 0x0034, 0x0035}
+        inj = {k: f[k] for k in inj_ids if k in f}
+        if inj:
+            print(f"\n  {BOLD('── Process Injection ──────────────────────────────────────────────')}")
+            for fid in sorted(inj):
+                rec = inj[fid]
+                if fid in (0x002b, 0x002c):
+                    val = CS_INJECT_PERMS.get(rec['value'], str(rec['value']))
+                elif rec['type'] == 3:
+                    val = (rec['value'] or '').strip('\x00') or rec['raw'].hex()[:60]
+                else:
+                    val = str(rec['value'])
+                print(f"  {rec['name']:<26} {val}")
+
+        # ── Malleable C2 / GET / POST transforms ───────────────────────
+        for fid, label, itype in (
+            (0x000b, 'Malleable C2  (server→client transform)', 1),
+            (0x000c, 'HTTP GET  header transforms',             2),
+            (0x000d, 'HTTP POST header transforms',             3),
+        ):
+            if fid in f and f[fid]['raw']:
+                try:
+                    instrs = _cs_decode_instructions(f[fid]['raw'], itype)
+                    if instrs:
+                        print(f"\n  {BOLD(f'── {label}')}")
+                        for step in instrs:
+                            print(f"    {DIM('›')} {step}")
+                except Exception:
+                    pass
+
+        # ── SSH transport ──────────────────────────────────────────────
+        ssh_ids = (0x0015, 0x0016, 0x0017, 0x0018, 0x0038)
+        ssh = {k: f[k] for k in ssh_ids if k in f}
+        if ssh:
+            print(f"\n  {BOLD('── SSH Transport ──────────────────────────────────────────────────')}")
+            for fid, rec in sorted(ssh.items()):
+                val = (rec['value'] or '').strip('\x00') if rec['type'] == 3 else str(rec['value'])
+                if val: print(f"  {rec['name']:<26} {val}")
+
+        # ── DNS transport ──────────────────────────────────────────────
+        dns_ids = range(0x003c, 0x0047)
+        dns = {k: f[k] for k in dns_ids if k in f}
+        if dns:
+            print(f"\n  {BOLD('── DNS Transport ──────────────────────────────────────────────────')}")
+            for fid, rec in sorted(dns.items()):
+                val = (rec['value'] or '').strip('\x00') if rec['type'] == 3 else str(rec['value'])
+                if val: print(f"  {rec['name']:<26} {val}")
+
+        # ── Full field table (--verbose only) ──────────────────────────
+        if verbose:
+            print(f"\n  {BOLD('── Full Config Field Table ────────────────────────────────────────')}")
+            w = max((len(v['name']) for v in f.values()), default=20)
+            for fid in sorted(f.keys()):
+                rec = f[fid]
+                if rec['type'] == 3:
+                    txt  = (rec['value'] or '').strip('\x00') if isinstance(rec['value'], str) else ''
+                    hexs = rec['raw'].hex()
+                    if txt:
+                        display = f"{repr(txt)}  [{hexs[:48]}{'...' if len(hexs) > 48 else ''}]"
+                    else:
+                        display = f"[{hexs[:64]}{'...' if len(hexs) > 64 else ''}]"
+                else:
+                    display = str(rec['value'])
+                print(f"    0x{fid:04x}  {rec['name']:<{w}}  {display}")
+
+        print()
+        findings['configs'].append({
+            'va': hit_va, 'file_offset': hit_fo,
+            'xor_key': xor_key, 'cs_version': cs_ver, 'fields': fields,
+        })
+
+    print(f"  {BOLD('[ VERDICT ]')}  "
+          f"{RED(f'COBALT STRIKE — {len(hits)} beacon config(s) found in memory')}\n")
+    if not verbose:
+        print(DIM("  Use --verbose to dump all config fields.\n"))
+
+    return findings
+
+
+
 def cmd_hunt(mf: MinidumpFile, ttp: str, verbose: bool = False):
     """Run TTP-specific detection playbooks."""
-    valid = {"injection", "hollowing", "stomping", "pipe", "all"}
+    valid = {"injection", "hollowing", "stomping", "pipe", "cs-beacon", "all"}
     if ttp not in valid:
         print(RED(f"[!] Unknown TTP '{ttp}'. Choose from: {', '.join(sorted(valid))}"))
         sys.exit(1)
 
-    run_injection = ttp in ("injection", "all")
-    run_hollowing = ttp in ("hollowing", "all")
-    run_stomping  = ttp in ("stomping",  "all")
-    run_pipe      = ttp in ("pipe",      "all")
+    run_injection  = ttp in ("injection",  "all")
+    run_hollowing  = ttp in ("hollowing",  "all")
+    run_stomping   = ttp in ("stomping",   "all")
+    run_pipe       = ttp in ("pipe",       "all")
+    run_cs_beacon  = ttp in ("cs-beacon",  "all")
 
     results = {}
 
     if run_injection:
-        results["injection"] = _hunt_injection(mf, verbose=verbose)
+        results["injection"]  = _hunt_injection(mf, verbose=verbose)
     if run_hollowing:
-        results["hollowing"] = _hunt_hollowing(mf, verbose=verbose)
+        results["hollowing"]  = _hunt_hollowing(mf, verbose=verbose)
     if run_stomping:
-        results["stomping"]  = _hunt_stomping(mf,  verbose=verbose)
+        results["stomping"]   = _hunt_stomping(mf,  verbose=verbose)
     if run_pipe:
-        results["pipe"]      = _hunt_pipe(mf, verbose=verbose)
+        results["pipe"]       = _hunt_pipe(mf, verbose=verbose)
+    if run_cs_beacon:
+        results["cs-beacon"]  = _hunt_cs_beacon(mf, verbose=verbose)
 
     # Summary card for --hunt all
     if ttp == "all":
@@ -1648,22 +2281,27 @@ def cmd_hunt(mf: MinidumpFile, ttp: str, verbose: bool = False):
         print(BOLD("  HUNT SUMMARY"))
         print(BOLD("══════════════════════════════════════════"))
         labels = {
-            "injection": ("Process Injection",          results["injection"]["score"], 3),
-            "hollowing": ("Process Hollowing",          results["hollowing"]["score"], 4),
-            "stomping":  ("Module Stomping",            results["stomping"]["score"],  2),
-            "pipe":      ("Named Pipe C2 / Lat. Move.", results["pipe"]["score"],      4),
+            "injection": ("Process Injection",          results["injection"]["score"],  3),
+            "hollowing": ("Process Hollowing",          results["hollowing"]["score"],  4),
+            "stomping":  ("Module Stomping",            results["stomping"]["score"],   2),
+            "pipe":      ("Named Pipe C2 / Lat. Move.", results["pipe"]["score"],       4),
+            "cs-beacon": ("Cobalt Strike Beacon",       results["cs-beacon"]["score"],  1),
         }
         any_hit = False
         for key, (name, score, max_score) in labels.items():
             if score == 0:
                 verdict = GREEN("CLEAN")
+            elif key == "cs-beacon":
+                verdict = RED(f"BEACON CONFIG FOUND ({score} config(s))")
+                any_hit = True
             elif score >= max_score - 1:
                 verdict = RED("HIGH CONFIDENCE")
                 any_hit = True
             else:
                 verdict = YELLOW("POSSIBLE")
                 any_hit = True
-            print(f"  {name:<25} {verdict}  ({score}/{max_score})")
+            suffix = f"  ({score}/{max_score})" if key != "cs-beacon" else ""
+            print(f"  {name:<25} {verdict}{suffix}")
         print()
         if not any_hit:
             print(GREEN("  Overall: No TTP indicators found in this dump."))
@@ -1894,7 +2532,7 @@ def main():
     mode.add_argument("--sysinfo",      action="store_true", help="Show OS, host, process and CPU summary")
     mode.add_argument("--diff",         metavar="DUMP2",     help="Diff against a second .DMP file")
     mode.add_argument("--report",        action="store_true", help="Generate triage report anchored to a TID, address, or string")
-    mode.add_argument("--hunt",          metavar="TTP",       help="TTP detection: injection | hollowing | stomping | pipe | all")
+    mode.add_argument("--hunt",          metavar="TTP",       help="TTP detection: injection | hollowing | stomping | pipe | cs-beacon | all")
 
     # Shared
     parser.add_argument("-s", "--size",      metavar="SIZE",   help="Region size in hex")
