@@ -25,6 +25,8 @@ I built this repository to solve specific challenges I encounter in daily operat
 5.  **First-Principles Thinking:** Operational commands (01, 06) are backed by deep OS internals knowledge (08). We don't just run queries; we understand how the OS generates the artifacts (e.g., how EPROCESS/VAD structures expose DKOM evasion, or why Kerberos delegation misconfigurations enable RBCD attacks).
 6.  **Layered Cross-Reference:** Malware TTPs (04) are explicitly anchored to OS internals (08) — e.g., Process Hollowing references VAD tree mechanics, and COM Hijacking references RPCSS architecture.
 7.  **Force Multiplication:** Codifying manual tradecraft and research (01-08) into automated, reusable modules (09) to ensure defense operates at machine speed.
+8.  **Tradecraft Over Tooling:** Tools are vehicles, not destinations. The workflows here are designed around investigative logic first — specific tooling is selected (or built) to serve the method, not the other way around. When existing tools leave a gap in the workflow, the gap gets filled.
+
 
 ---
 
