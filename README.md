@@ -25,7 +25,6 @@ I built this repository to solve specific challenges I encounter in daily operat
 5.  **First-Principles Thinking:** Operational commands (01, 06) are backed by deep OS internals knowledge (08). We don't just run queries; we understand how the OS generates the artifacts (e.g., how EPROCESS/VAD structures expose DKOM evasion, or why Kerberos delegation misconfigurations enable RBCD attacks).
 6.  **Layered Cross-Reference:** Malware TTPs (04) are explicitly anchored to OS internals (08) — e.g., Process Hollowing references VAD tree mechanics, and COM Hijacking references RPCSS architecture.
 7.  **Force Multiplication:** Codifying manual tradecraft and research (01-08) into automated, reusable modules (09) to ensure defense operates at machine speed.
-8.  **Custom Tooling as Force Multiplier:** Where existing tools leave gaps, I build to fill them. **[dumpex](https://github.com/bitbug0x55AA/dumpex)** is a purpose-built minidump triage tool that slots into `3.2.06` as the process `.DMP` analysis layer — providing automated TTP detection (injection, CS beacon config extraction, sleep mask decode, named pipe C2) directly from `.DMP` files, filling the gap between Volatility's full-image scope and Sysmon's log-based view.
 
 ---
 
